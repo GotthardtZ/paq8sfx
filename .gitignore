@@ -1,7 +1,6 @@
 .clang-format
 .idea
 CMakeCache.txt
-Makefile
 cmake_install.cmake
 cmake-build-debug
 compile_commands.json

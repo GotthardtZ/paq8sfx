@@ -15,7 +15,7 @@
 #endif
 
 #define SFX_SILENT // remove if you want to see error messages from the SFX module
-#define AVX2_ONLY // remove of you don't have AVX2
+#define AVX2_ONLY // remove if you don't have AVX2
 
 
 //////////////////////// Target OS/Compiler ////////////////////////////////

@@ -1,4 +1,4 @@
-# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
+﻿# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
 
 ## About
 
@@ -160,7 +160,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | paq8sfx -12 | 667'366 | 40'448 | **707'814** | 11.6% | 475 sec |
 | paq8px -12 | 646'119 | - | 646'119 | 10.6% | 1'008 sec |
 
-**[mcm 0.83](https://encode.su/threads/2127-MCM-LZP?p=43220&viewfull=1#post43220), x64** - 2'444'886 bytes
+**mcm.exe, [mcm 0.83](https://encode.su/threads/2127-MCM-LZP?p=43220&viewfull=1#post43220), x64** - 2'444'886 bytes
 
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -168,7 +168,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | paq8sfx -12 | 268'772 | 40'448 | **309'220** | 12.6% | 190 sec |
 | paq8px -12 | 257'256 | - | 257'256 | 10.5% | 366 sec |
 
-**[zpaq 7.15](https://github.com/zpaq/zpaq/releases/tag/7.15), 64-bit** - 1'125'376 bytes
+**zpaq64.exe [zpaq 7.15](https://github.com/zpaq/zpaq/releases/tag/7.15), 64-bit** - 1'125'376 bytes
 
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -180,17 +180,21 @@ Even with its stub counted, `paq8sfx` is significantly better than UPX in every 
 
 ### Stub size
 
-| Platform | Compiler | Stub size | After `upx --best --ultra-brute` |
-| --- | --- | ---: | ---: |
-| Windows | MinGW-w64 (GCC 15.2.0) | 86'016 | 40'448 |
-| Ubuntu | gcc 13.3.0 | 59'600 | 30'504 |
-| Ubuntu | clang 18.1.3 | 68'152 | 34'612 |
+| Platform | Compiler | Architecture| Stub size | After `upx --best --ultra-brute` |
+| --- | --- | --- | ---: | ---: |
+| Windows | MinGW-w64 (GCC 15.2.0) | x64, Generic | 88'576| 41'984 |
+| Windows | MinGW-w64 (GCC 15.2.0) | x64, AVX2_ONLY | 86'016 | 40'448 |
+| Windows | VS 2022 (MSVC 19.44.35216) | x86 | 59'392 | 33'280 |
+| Windows | VS 2022 (MSVC 19.44.35216) | x64, Generic | 68'096 | 36'352 |
+| Windows | VS 2022 (MSVC 19.44.35216) | x64, AVX2_Only | 65'024 | 35'328 |
+| Ubuntu | gcc 13.3.0 | x64, AVX2_Only | 59'600 | 30'504 |
+| Ubuntu | clang 18.1.3 | x64, AVX2_Only | 68'152 | 34'612 |
 
 These stub executables are dynamically linked - see [Runtime dependencies](#runtime-dependencies).
 
 ## How to compile
 
-A C++17 compiler for x64 is required. The same source is compiled twice: once with `-DFULL` (gives `paq8sfx`) and once with `-DSFX` (gives `stub`). The build scripts do both.
+A C++17 compiler for x64 is required. The same source is compiled twice: once with `-DFULL` (gives `paq8sfx`) and once with `-DSFX` (gives `stub`). The build scripts and the Makefile do both.
 
 ### Windows, MinGW-w64
 
@@ -199,9 +203,9 @@ The script expects MinGW-w64 in `c:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mi
 
 ### Windows, Visual Studio
 
-1. Open `paq8sfx.sln` and select the Release configuration.
-2. In `src/SystemDefines.hpp` uncomment `#define SFX` only, build, and rename the resulting `paq8sfx.exe` to `stub.exe`.
-3. Uncomment `#define FULL` only (comment `SFX` out again) and build `paq8sfx.exe`.
+1. Open `paq8sfx.sln`. Select either `x64` or `x86` as the target platform. Note: AVX2_ONLY must be commented out in `src/SystemDefines.hpp` for x86 otherwise the build will fail.
+2. Select the `Release-FULL` configuration. Build.
+3. Select the `Release-SFX` configuration. Build.
 
 ### Linux
 
@@ -214,6 +218,29 @@ sh build-linux-with-gcc.sh       # or: sh build-linux-with-clang.sh
 
 It creates `paq8sfx` and `stub` in the `build` folder.
 
+### Linux, with make
+
+Alternatively, use the `Makefile` in the project root (GNU make, with gcc or clang). It uses the same compiler settings as the scripts, but compiles the source files separately and in parallel, and after a change it rebuilds only what is affected.
+
+```
+make -j              # build paq8sfx and stub into the build folder
+make test            # build, then run the roundtrip test
+```
+
+| Command | What it does |
+| --- | --- |
+| `make` | Builds both programs. Add `-j` to compile in parallel. |
+| `make paq8sfx`, `make stub` | Builds only one of them. |
+| `make test` | Builds both, then runs the roundtrip test (see [How to test](#how-to-test)). |
+| `make upx` | Compresses the stub with `upx --best --ultra-brute`. |
+| `make clean` | Removes the object files (`build/obj`) and the two executables. |
+| `make CXX=clang++` | Builds with clang instead of gcc. |
+| `make V=1` | Shows the full compiler command lines. |
+
+Changing the compiler or a setting in `src/SystemDefines.hpp` is picked up automatically; there is no need to run `make clean` first.
+
+The Makefile also has settings for MinGW-w64 on Windows, to be run from a shell that provides `sh`, `mkdir` and `rm` (MSYS2, Git Bash).
+
 ### Making the stub smaller
 
 Compress the stub with UPX **before** assembling a package with it:
@@ -222,9 +249,11 @@ Compress the stub with UPX **before** assembling a package with it:
 upx --best --ultra-brute stub.exe
 ```
 
+With the Makefile: `make upx`.
+
 ### Build settings
 
-Two settings in `src/SystemDefines.hpp` affect the result:
+Two settings in `src/SystemDefines.hpp` affect the result. They are set in that file for every build method - they cannot be given on the `make` command line:
 
 | Setting | Effect when defined (the default) | Effect when commented out |
 | --- | --- | --- |
@@ -239,11 +268,12 @@ Archives are created and read by the same model code, so always use a `paq8sfx` 
 ### Runtime dependencies
 
 - The MinGW-w64 build links the GCC runtime dynamically. `libgcc_s_seh-1.dll`, `libstdc++-6.dll` and `libwinpthread-1.dll` must be reachable (on the `PATH` or next to the executable) on the machine where the package runs.
+- The MSVC 14 (Visual Studio 2022) build links the VC++ runtime dynamically. The [Microsoft Visual C++ 2015–2022 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version) or a compatible higher version must be installed on the machine where the package runs.
 - The Linux builds are dynamically linked against the system C and C++ runtime libraries.
 
 ## How to test
 
-The `test` folder contains a roundtrip test for Windows and for Linux. It compresses, packages, unpacks and verifies a pair of small files, and reports crashes of the tested programs. See [test/README.md](test/README.md) for how to run it and how to read its output.
+The `test` folder contains a roundtrip test for Windows and for Linux. It compresses, packages, unpacks and verifies a pair of small files, and reports crashes of the tested programs. See [test/README.md](test/README.md) for how to run it and how to read its output. On Linux, `make test` builds both programs and runs it.
 
 ## How it works
 
