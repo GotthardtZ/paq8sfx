@@ -20,3 +20,7 @@ x64/
 release/
 debug/
 packages/
+/src/Release-SFX
+/Release-FULL
+/Release-SFX
+/src/Release-FULL

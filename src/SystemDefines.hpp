@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-// User-controller build settings
+// User-controlled build settings
 
 // set by the build scripts: either FULL or SFX
 //#define FULL
