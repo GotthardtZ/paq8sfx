@@ -6,35 +6,37 @@
 #include "Filter.hpp"
 
 /**
- * EXE transform: <encoded-size> <begin> <block>...
- * Encoded-size is 4 bytes, MSB first.
- * begin is the offset of the start of the input file, 4 bytes, MSB first.
- * Each block applies the e8e9 transform to strings falling entirely
- * within the block starting from the end and working backwards.
- * The 5 byte pattern is E8/E9 xx xx xx 00/FF (x86 CALL/JMP xxxxxxxx)
- * where xxxxxxxx is a relative address LSB first.  The address is
- * converted to an absolute address by adding the offset mod 2^25
- * (in range +-2^24).
+ * EXE transform (E8/E9 transform) for x86/x64 code.
+ *
+ * A CALL or JMP instruction (E8/E9 xx xx xx 00/FF) and a conditional jump
+ * (0F 8x xx xx xx 00/FF) hold a relative address, xxxxxxxx, LSB first. The
+ * same target has a different relative address at every place it is called
+ * from. The transform converts the relative address to an absolute one by
+ * adding the position of the instruction, so that calls to the same target
+ * look the same and compress better. Only addresses in the range +-2^24 are
+ * handled; the arithmetic is done mod 2^25.
+ *
+ * The data is processed in blocks of 64 KB; instructions that cross a block
+ * boundary are left as they are. "begin" is the position of the data in the
+ * input file; it is stored with the block (as its block info), not in the
+ * transformed data.
  */
 class ExeFilter : public Filter {
 private:
   constexpr static int block = 0x10000; /**< block size */
   int info{};
 public:
-  
-void setBegin(int info) {
-  this->info = info;
-}
+
+  void setBegin(int info) {
+    this->info = info;
+  }
 
 #ifdef FULL
 
-/**
-    * @todo Large file support
-    * @param in
-    * @param out
-    * @param size
-    * @param info
-    */
+  /**
+   * Transforms size bytes of in, writes the result to out.
+   * @todo Large file support
+   */
   void encode(File *in, File *out, uint64_t size, int info, int &/*headerSize*/) override {
     Array<uint8_t> blk(block);
 
@@ -63,20 +65,19 @@ void setBegin(int info) {
 
 #else
 
-void encode(File* in, File* out, uint64_t size, int info, int&/*headerSize*/) override {
-}
+  // The stub only decodes.
+  void encode(File* /*in*/, File* /*out*/, uint64_t /*size*/, int /*info*/, int& /*headerSize*/) override {
+  }
 
 #endif
 
   /**
-    * @todo Large file support
-    * @param in
-    * @param out
-    * @param fMode
-    * @param size
-    * @param diffFound
-    * @return
-    */
+   * Decompresses size bytes with the encoder and reverses the transform.
+   * The result is written to out (FDECOMPRESS) or compared with out (FCOMPARE).
+   * @todo Large file support
+   * @param diffFound when comparing: set to the position of the first difference + 1
+   * @return size
+   */
   uint64_t decode(File */*in*/, File* out, FMode fMode, uint64_t size, uint64_t& diffFound) override {
     int offset = 6;
     int a = 0;
@@ -116,4 +117,3 @@ void encode(File* in, File* out, uint64_t size, int info, int&/*headerSize*/) ov
   }
 
 };
-

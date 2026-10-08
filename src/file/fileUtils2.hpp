@@ -3,10 +3,9 @@
 #include "FileDisk.hpp"
 
 /**
- * Verify that the specified file exists and is readable, determine file size
+ * Verify that the specified file exists and is readable, determine file size.
+ * Quits if the file is 2 GB or larger.
  * @todo Large file support
- * @param filename
- * @return
  */
 static uint64_t getFileSize(const char *filename) {
   FileDisk f;

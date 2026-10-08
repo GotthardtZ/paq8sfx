@@ -2,17 +2,21 @@
 
 #include "exe.hpp"
 #include "../Array.hpp"
+#include "../Block.hpp"
 #include "../BlockType.hpp"
 #include "../Encoder.hpp"
+#include "../String.hpp"
 #include "../file/File.hpp"
 #include "../file/FileDisk.hpp"
 #include "../file/FileTmp.hpp"
 #include "../Utils.hpp"
 #include "Filter.hpp"
-#include <cctype>
 #include <cstdint>
 #include <cstring>
 
+//////////////////// Decompress ////////////////////////////
+
+// Decodes a block that was transformed before compression
 static uint64_t decodeFunc(BlockType type, Encoder& en, File* tmp, uint64_t len, int info, File* out, FMode mode, uint64_t& diffFound) {
   if (type == BlockType::EXE) {
     auto f = ExeFilter();
@@ -26,6 +30,7 @@ static uint64_t decodeFunc(BlockType type, Encoder& en, File* tmp, uint64_t len,
   return 0;
 }
 
+// Decompresses (or compares) blockSize bytes, block by block
 static uint64_t decompressRecursive(File* out, uint64_t blockSize, Encoder& en, FMode mode) {
   uint64_t i = 0;
   uint64_t diffFound = 0;
@@ -99,57 +104,31 @@ static void decompressFile(const Shared* const shared, const char* filename, FMo
 
 #ifdef FULL
 
+//////////////////// Detect ////////////////////////////////
+
 struct DetectionInfo
 {
-  uint64_t HeaderStart{};
-  uint64_t HeaderLength{};
   uint64_t DataStart{};
   uint64_t DataLength{};
   BlockType Type{};
   int DataInfo{};
 };
 
-  struct TextDetectionInfo
-  {
-    uint64_t DataStart{};
-    uint64_t DataLength{};
-    BlockType Type{}; // DEFAULT / TEXT / TEXT_EOL
-  };
-
-  // Detect text blocks (TEXT/TEXT_EOL) inside a DEFAULT block
-  static TextDetectionInfo detectText(File* in, uint64_t blockStart, uint64_t blockSize) {
-    TextDetectionInfo detectionInfo;
-
-    //no text found at all, or it is too small
-    //DEFAULT
-    detectionInfo.Type = BlockType::DEFAULT;
-    detectionInfo.DataStart = blockStart;
-    detectionInfo.DataLength = blockSize;
-    return detectionInfo;
-  }
-
-  
-// Detect blocks
+// Finds the next x86/x64 block in the next blockSize bytes of the file.
+// Returns its position and length, or a block of length 0 at the end if there is none.
 static DetectionInfo detect(File *in, uint64_t blockSize) {
 
   DetectionInfo detectionInfo;
 
-  int textParserState = 0;
-  uint64_t blockHash = 0;
-
   // TODO: Large file support
   const uint64_t n = blockSize;
 
-  // last 16 bytes
-  uint32_t buf3 = 0;
-  uint32_t buf2 = 0;
+  // last 8 bytes
   uint32_t buf1 = 0;
   uint32_t buf0 = 0;
-  
-  uint64_t start = 0;
 
-  start = in->curPos(); // start of the current block
-  
+  const uint64_t start = in->curPos(); // start of the current block
+
   // For EXE detection
   Array<uint64_t> absPos(256); // CALL/JMP abs. address. low byte -> last offset
   Array<uint64_t> relPos(256); // CALL/JMP relative address. low byte -> last offset
@@ -163,10 +142,6 @@ static DetectionInfo detect(File *in, uint64_t blockSize) {
       quit("detect(): Unexpected end of file");
     }
 
-    blockHash = hash(blockHash, c);
-
-    buf3 = buf3 << 8 | buf2 >> 24;
-    buf2 = buf2 << 8 | buf1 >> 24;
     buf1 = buf1 << 8 | buf0 >> 24;
     buf0 = buf0 << 8 | c;
 
@@ -209,7 +184,7 @@ static DetectionInfo detect(File *in, uint64_t blockSize) {
       e8e9count = 0;
     }
   }
-  
+
   if (detectionInfo.Type != BlockType::DEFAULT)
     quit("detect(): detection didn't finish properly.");
 
@@ -221,8 +196,9 @@ static DetectionInfo detect(File *in, uint64_t blockSize) {
   return detectionInfo;
 }
 
-//////////////////// Compress, Decompress ////////////////////////////
+//////////////////// Compress //////////////////////////////
 
+// Compresses a block as it is
 static void directEncodeBlock(BlockType type, File *in, uint64_t len, Encoder &en, int info) {
   // TODO: Large file support
   Block::EncodeBlockHeader(&en, type, len, info);
@@ -236,31 +212,34 @@ static void directEncodeBlock(BlockType type, File *in, uint64_t len, Encoder &e
   fprintf(stderr, "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
 }
 
-static uint64_t encodeFunc(BlockType type, File *in, File *tmp, uint64_t len, int info, int &hdrsize) {
+// Transforms a block to a better compressible form, into tmp
+static void encodeFunc(BlockType type, File *in, File *tmp, uint64_t len, int info, int &hdrsize) {
   if( type == BlockType::EXE ) {
     auto f = ExeFilter();
-    f.setBegin(info); 
+    f.setBegin(info);
     f.encode(in, tmp, len, info, hdrsize);
   } else {
     assert(false);
   }
-  return 0;
 }
 
-static void
-transformEncodeBlock(BlockType type, File *in, uint64_t len, Encoder &en, int info, String &blstr, float p1, float p2, uint64_t begin) {
+// Compresses a block. A block of a type that has a transform is transformed
+// first. The transform is then tested: if decoding does not give back the
+// original data, the block is compressed without the transform.
+static void transformEncodeBlock(BlockType type, File *in, uint64_t len, Encoder &en, int info, uint64_t begin) {
   if( hasTransform(type, info)) {
     FileTmp tmp;
     int headerSize = 0;
-    uint64_t diffFound = encodeFunc(type, in, &tmp, len, info, headerSize);
+    encodeFunc(type, in, &tmp, len, info, headerSize);
     const uint64_t tmpSize = tmp.curPos();
-    tmp.setpos(tmpSize); //switch to read mode
-    if( diffFound == 0 ) {
-      tmp.setpos(0);
-      en.setFile(&tmp);
-      in->setpos(begin);
-      decodeFunc(type, en, &tmp, tmpSize, info, in, FMode::FCOMPARE, diffFound);
-    }
+
+    // Test: decode the transformed data and compare it with the input
+    uint64_t diffFound = 0;
+    tmp.setpos(0);
+    en.setFile(&tmp);
+    in->setpos(begin);
+    decodeFunc(type, en, &tmp, tmpSize, info, in, FMode::FCOMPARE, diffFound);
+
     // Test fails, compress without transform
     if( diffFound > 0 || tmp.getchar() != EOF) {
       printf("Transform fails at %" PRIu64 ", skipping...\n", diffFound - 1);
@@ -276,37 +255,28 @@ transformEncodeBlock(BlockType type, File *in, uint64_t len, Encoder &en, int in
   }
 }
 
-static void composeSubBlockStringToPrint(String& blstr, String& blstrSub, int blNum) {
-  //Compose block enumeration string
-  blstrSub += blstr.c_str();
-  if (blstrSub.strsize() != 0) {
-    blstrSub += "-";
-  }
-  blstrSub += uint64_t(blNum);
+static void printBlock(const uint64_t begin, const uint64_t len, const BlockType type, const int blNum) {
+  static const char* typeNames[] = { "default", "x86/64" };
+
+  String blockName;
+  blockName += uint64_t(blNum);
+  printf(" %-11s | %-16s |%10" PRIu64 " bytes [%" PRIu64 " - %" PRIu64 "]\n", blockName.c_str(), typeNames[(int)type], len, begin, (begin + len) - 1);
 }
 
-static void printBlock(const uint64_t begin, const uint64_t len, const BlockType type, const int blockInfo, String& blstrSub) {
-  static const char* typeNames[30] = { "default", "x86/64"};
-
-  const char* typeName = typeNames[(int)type];
-  printf(" %-11s | %-16s |%10" PRIu64 " bytes [%" PRIu64 " - %" PRIu64 "]", blstrSub.c_str(), typeName, len, begin, (begin + len) - 1);
-  printf("\n");
-}
-
-static void compressBlock(File* in, const uint64_t begin, const uint64_t len, int &blNum, BlockType type, int blockInfo, Encoder& en, String& blstr, float &p1, float &p2, const float pscale) {
+static void compressBlock(File* in, const uint64_t begin, const uint64_t len, int &blNum, BlockType type, int blockInfo, Encoder& en, float &p1, float &p2, const float pscale) {
   p2 = p1 + pscale * len;
   en.setStatusRange(p1, p2);
 
-  String blstrSub;
-  composeSubBlockStringToPrint(blstr, blstrSub, blNum);
-  printBlock(begin, len, type, blockInfo, blstrSub);
-  transformEncodeBlock(type, in, len, en, blockInfo, blstrSub, p1, p2, begin);
+  printBlock(begin, len, type, blNum);
+  transformEncodeBlock(type, in, len, en, blockInfo, begin);
   blNum++;
 
   p1 = p2;
 }
 
-static void compressRecursive(File *in, uint64_t bytesToProcess, Encoder &en, String &blstr, float p1, float p2) {
+// Splits the next bytesToProcess bytes of the file into blocks by type and
+// compresses them one by one. p1..p2 is the range of the progress display.
+static void compressRecursive(File *in, uint64_t bytesToProcess, Encoder &en, float p1, float p2) {
 
   uint64_t begin = in->curPos();
 
@@ -315,48 +285,42 @@ static void compressRecursive(File *in, uint64_t bytesToProcess, Encoder &en, St
   int blNum = 0;
   while(bytesToProcess > 0 ) {
 
-    //detect a block 
+    //detect a block
     DetectionInfo detectionInfo = detect(in, bytesToProcess); // Special blocktypes
     in->setpos(begin);
 
-    uint64_t blockStart = detectionInfo.HeaderLength != 0 ? detectionInfo.HeaderStart : detectionInfo.DataStart;
-    while(blockStart != begin) {
-      TextDetectionInfo textDetectionInfo = detectText(in, begin, blockStart - begin); // DEFAULT / TEXT / TEXT_EOL
-      compressBlock(in, textDetectionInfo.DataStart, textDetectionInfo.DataLength, /*ref: */ blNum, textDetectionInfo.Type, 0, en, /*in: */ blstr, /*ref: */ p1, /*ref: */ p2, pscale);
-      begin += textDetectionInfo.DataLength;
-      bytesToProcess -= textDetectionInfo.DataLength;
+    //everything in front of the detected block is a default block
+    if (detectionInfo.DataStart != begin) {
+      const uint64_t len = detectionInfo.DataStart - begin;
+      compressBlock(in, begin, len, /*ref: */ blNum, BlockType::DEFAULT, 0, en, /*ref: */ p1, /*ref: */ p2, pscale);
+      begin += len;
+      bytesToProcess -= len;
     }
 
-    if (begin != detectionInfo.DataStart)
-      quit("Internal error in compressRecursive");
-    
+    //the detected block
     if (detectionInfo.DataLength != 0) {
-      compressBlock(in, detectionInfo.DataStart, detectionInfo.DataLength, /*ref: */ blNum, detectionInfo.Type, detectionInfo.DataInfo, en, /*in: */ blstr, /*ref: */ p1, /*ref: */ p2, pscale);
+      compressBlock(in, detectionInfo.DataStart, detectionInfo.DataLength, /*ref: */ blNum, detectionInfo.Type, detectionInfo.DataInfo, en, /*ref: */ p1, /*ref: */ p2, pscale);
       begin += detectionInfo.DataLength;
       bytesToProcess -= detectionInfo.DataLength;
     }
   }
 }
 
-// Compress a file. Split fileSize bytes into blocks by type.
-// For each block, output
-// <type> <size> and call encode_X to convert to type X.
-// Test transform and compress.
+// Compress a file: store its size, then split it into blocks by type.
+// For each block the block header (type, size, info) and the content are
+// compressed; the content of an x86/x64 block is transformed first.
 static void compressfile(const Shared* const shared, const char *filename, uint64_t fileSize, Encoder &en) {
   assert(en.getMode() == COMPRESS);
   assert(filename && filename[0]);
 
-  uint64_t start = en.size();
   en.initContextForBlockModel(BlockType::DEFAULT, 0);
   Block::EncodeBlockSize(&en, fileSize);
 
   FileDisk in;
   in.open(filename, true);
   printf("Block segmentation:\n");
-  String blstr;
-  compressRecursive(&in, fileSize, en, blstr, 0.0F, 1.0F);
+  compressRecursive(&in, fileSize, en, 0.0F, 1.0F);
   in.close();
 }
 
 #endif // FULL
-

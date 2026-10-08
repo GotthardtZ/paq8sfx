@@ -1,21 +1,37 @@
 ﻿#pragma once
 
-// User-controlled build settings
+//////////////////////// Build settings ////////////////////////////////////
+//
+// The build (build scripts, Makefile, Visual Studio project) defines exactly
+// one of these for every source file:
+//   FULL   builds paq8sfx, the compressor
+//   SFX    builds the stub, the self-extractor
+//
+// and optionally, for the stub:
+//   AVX2_ONLY          keep only the AVX2 code path: a smaller stub that needs
+//                      a CPU with AVX2 (default: every code path is compiled
+//                      in and one is selected at run time)
+//   SFX_EXTRACT_ONLY   build the extract-only stub
+//   SFX_FREESTANDING   build the libc-free stub (see src/platform/)
+//
+// See "Build settings" in README.md.
 
-// set by the build scripts: either FULL or SFX
-//#define FULL
-//#define SFX
-
-#if defined(FULL) && (defined SFX)
-#error
+#if defined(FULL) && defined(SFX)
+#error Define either FULL or SFX, not both
 #endif
 
 #if !defined(FULL) && !defined(SFX)
-#error
+#error Define FULL (to build paq8sfx) or SFX (to build the stub)
 #endif
 
-#define SFX_SILENT // remove if you want to see error messages from the SFX module
-#define AVX2_ONLY // remove if you don't have AVX2
+#if defined(SFX_FREESTANDING) && !defined(SFX)
+#error SFX_FREESTANDING is a setting of the stub: define SFX as well
+#endif
+
+// The only setting that is made here: with SFX_SILENT the stub prints no
+// messages of its own. Comment it out to see what the stub is doing and what
+// went wrong.
+#define SFX_SILENT
 
 
 //////////////////////// Target OS/Compiler ////////////////////////////////
@@ -70,58 +86,62 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 #define ASSUME(cond) assert(cond)
 #endif
 
-// Platform-specific includes
-#ifdef WINDOWS
 
+//////////////////////// Includes //////////////////////////////////////////
+
+#ifdef WINDOWS
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>   //CreateDirectoryW, CommandLineToArgvW, GetConsoleOutputCP, SetConsoleOutputCP
-//GetCommandLineW, GetModuleFileNameW, GetStdHandle, GetTempFileName
-//MultiByteToWideChar, WideCharToMultiByte,
-//FileType, FILE_TYPE_PIPE, FILE_TYPE_DISK,
-//uRetVal, DWORD, UINT, TRUE, MAX_PATH, CP_UTF8, etc.
+#include <windows.h>   //CreateDirectoryW, GetModuleFileNameW, MultiByteToWideChar, DWORD, MAX_PATH, CP_UTF8, etc.
 #endif
 
 #include <cstdint>
 #include <cassert>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib> //exit()
 // Determining the proper printf() format specifier for 64 bit unsigned integers:
 // - on Windows MSVC and MinGW-w64 use the MSVCRT runtime where it is "%I64u"
 // - on Linux it is "%llu"
 // The correct value is provided by the PRIu64 macro which is defined here:
 #include <cinttypes> //PRIu64
 
-// Platform-specific includes
-
 #ifdef UNIX
 #include <cerrno>  //errno
 #include <climits> //PATH_MAX (for OSX)
-#include <cstring> //strlen(), strcpy(), strcat(), strerror(), memset(), memcpy(), memmove()
-#include <unistd.h> //isatty()
+#include <cstring> //strlen(), strcspn(), strerror(), memset(), memcpy(), memmove()
+#include <unistd.h> //execv()
 #endif
 
-#ifdef _MSC_VER
-#define fseeko(a, b, c) _fseeki64(a, b, c)
-#define ftello(a) _ftelli64(a)
-#else
-#ifndef UNIX
-#ifndef fseeko
-#define fseeko(a, b, c) fseeko64(a, b, c)
-#endif
-#ifndef ftello
-#define ftello(a) ftello64(a)
-#endif
-#endif
-#endif
+
+//////////////////////// Differences between C libraries ///////////////////
 
 #ifdef WINDOWS
+// Seeking in files larger than 2 GB: fseeko() and ftello() are called
+// _fseeki64() and _ftelli64() in the Microsoft C library (MSVC and MinGW-w64).
+#undef fseeko
+#undef ftello
+#define fseeko(file, offset, whence) _fseeki64(file, offset, whence)
+#define ftello(file) _ftelli64(file)
+
 #define strcasecmp _stricmp
 #endif
 
+#ifdef SFX_FREESTANDING
+// The libc-free stub has no console output. These macros remove every
+// printf(), fprintf() and fflush() call from it; their arguments are not
+// evaluated. (Defined after <cstdio>, so the declarations are not affected.)
+#define printf(...)  ((void)0)
+#define fprintf(...) ((void)0)
+#define fflush(...)  ((void)0)
+#endif
+
+
+//////////////////////// Error handler /////////////////////////////////////
+
 #ifdef FULL
-// Error handler: print message if any, and exit
+// Print the message (if any) and exit
 [[noreturn]] static void quit(const char* const message = nullptr) {
   if (message != nullptr) {
     printf("\n%s", message);
@@ -130,11 +150,8 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
   exit(1);
 }
 #else
-// Error handler: exit silently
-[[noreturn]] static void quit(const char* const message = nullptr) {
+// The stub exits silently
+[[noreturn]] static void quit(const char* const /*message*/ = nullptr) {
   exit(1);
 }
 #endif
-
-
-

@@ -22,10 +22,22 @@
     <Filter Include="model">
       <UniqueIdentifier>{b7cb947a-b9cc-43a3-91e9-f0b49f39101f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="platform">
+      <UniqueIdentifier>{5d0c8a6e-2f41-4c7b-9e35-8a1f6b2c7d40}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="paq8sfx.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\CRuntime.cpp">
+      <Filter>platform</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\Platform_Linux.cpp">
+      <Filter>platform</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\Platform_Windows.cpp">
+      <Filter>platform</Filter>
     </ClCompile>
     <ClCompile Include="APM.cpp">
       <Filter>Source Files</Filter>
@@ -49,9 +61,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MixerFactory.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Models.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Random.cpp">
@@ -102,9 +111,9 @@
     <ClCompile Include="model\SparseModel.cpp">
       <Filter>model</Filter>
     </ClCompile>
-    <ClCompile Include="Clz.hpp">
+    <ClInclude Include="Clz.hpp">
       <Filter>Header Files</Filter>
-    </ClCompile>
+    </ClInclude>
     <ClCompile Include="ArithmeticEncoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -173,6 +182,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="platform\Platform.hpp">
+      <Filter>platform</Filter>
+    </ClInclude>
     <ClInclude Include="AdaptiveMap.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -210,9 +222,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MixerFactory.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Models.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Random.hpp">
@@ -255,6 +264,9 @@
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="file\FileDisk.hpp">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileMemRead.hpp">
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="file\FileName.hpp">

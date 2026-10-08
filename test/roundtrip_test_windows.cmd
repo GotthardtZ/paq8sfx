@@ -73,7 +73,7 @@ exit /b
 :: ------------------------------------------------------------
 set "_desc=exit code %~1"
 if "%~1"=="-1073741819" set "_desc=crashed: access violation [0xC0000005]"
-if "%~1"=="-1073741795" set "_desc=crashed: illegal instruction [0xC000001D] - CPU without AVX2? See AVX2_ONLY in src\SystemDefines.hpp"
+if "%~1"=="-1073741795" set "_desc=crashed: illegal instruction [0xC000001D] - CPU without AVX2? The stub was built with AVX2_ONLY - see Build settings in README.md"
 if "%~1"=="-1073741571" set "_desc=crashed: stack overflow [0xC00000FD]"
 if "%~1"=="-1073740791" set "_desc=crashed: stack buffer overrun [0xC0000409]"
 if "%~1"=="-1073740940" set "_desc=crashed: heap corruption [0xC0000374]"

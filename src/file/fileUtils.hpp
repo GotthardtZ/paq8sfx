@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <cerrno>
 #include <cstdint>
@@ -10,10 +10,9 @@
 #include "../SystemDefines.hpp"
 
 //////////////////// IO functions and classes ///////////////////
-// Wrappers to utf8 vs. wchar functions
-// Linux i/o works with utf8 char* but on windows it's wchar_t*.
-// We'll be using utf8 char* in all our functions, so we need to convert to/from
-// wchar_t* when on windows.
+// File names are UTF-8 (char*) everywhere in this program. Linux takes them
+// as they are; Windows needs UTF-16 (wchar_t*), so the wrappers below convert
+// them before calling the Windows functions.
 
 
 // The preferred slash for displaying
@@ -26,50 +25,19 @@
 #define GOODSLASH '/'
 #endif
 
-//only for Windows: a class encapsulating a wchar string converted from a utf8 string
-//purpose: to properly free the allocated string buffer on destruction
+// Only for Windows: a UTF-16 copy of a UTF-8 string.
+// The copy is freed when the object goes out of scope.
 #ifdef WINDOWS
 class WcharStr {
-  private:
-  //convert a utf8 string to a wchar string
-  wchar_t *utf8_to_wchar_str(const char *utf8_str) {
-    int buffersize     = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, NULL, 0);
-    wchar_t *wchar_str = new wchar_t[buffersize];
-    MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, wchar_str, buffersize);
-    return wchar_str;
-  }
-
-  public:
+public:
   wchar_t *wchar_str;
-  WcharStr(const char *utf8_str) {
-    wchar_str = utf8_to_wchar_str(utf8_str);
+  explicit WcharStr(const char *utf8_str) {
+    const int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, nullptr, 0);
+    wchar_str = new wchar_t[bufferSize];
+    MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, wchar_str, bufferSize);
   }
   ~WcharStr() {
     delete[] wchar_str;
-  }
-};
-#endif
-
-//only for Windows: a class encapsulating a utf8 string converted from a wchar string
-//purpose: to properly free the allocated string buffer on destruction
-#ifdef WINDOWS
-class Utf8Str {
-  private:
-  //convert a wchar string to a utf8 string
-  char *wchar_to_utf8_str(const wchar_t *wchar_str) {
-    int buffersize = WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, NULL, 0, NULL, NULL);
-    char *utf8_str = new char[buffersize];
-    WideCharToMultiByte(CP_UTF8, 0, wchar_str, -1, utf8_str, buffersize, NULL, NULL);
-    return utf8_str;
-  }
-
-  public:
-  char *utf8_str;
-  Utf8Str(const wchar_t *wchar_str) {
-    utf8_str = wchar_to_utf8_str(wchar_str);
-  }
-  ~Utf8Str() {
-    delete[] utf8_str;
   }
 };
 #endif
@@ -82,35 +50,33 @@ class Utf8Str {
 
 static constexpr int READ = 0;
 static constexpr int WRITE = 1;
-static constexpr int APPEND = 2;
 
 /**
  * Wrapper function (Linux vs Windows) to open a file
  * @param filename
- * @param mode
- * @return
+ * @param mode READ: open an existing file for reading;
+ *             WRITE: create the file (or empty it) for reading and writing
+ * @return the file, or nullptr on failure
  */
 static FILE* openFile(const char *filename, const int mode) {
-  FILE *file = nullptr;
 #ifdef WINDOWS
-  file = _wfopen(WcharStr(filename).wchar_str, mode == READ ? L"rb" : mode == WRITE ? L"wb+" : L"a");
+  return _wfopen(WcharStr(filename).wchar_str, mode == READ ? L"rb" : L"wb+");
 #else
-  file = fopen(filename, mode == READ ? "rb" : mode == WRITE ? "wb+" : "a");
+  return fopen(filename, mode == READ ? "rb" : "wb+");
 #endif
-  return file;
 }
 
 /**
  * Wrapper function (Linux vs Windows) to examine a path
  * @param path
- * @param status
- * @return
+ * @param status receives the details of the file or directory
+ * @return true on success; on failure errno tells why
  */
 static bool statPath(const char *path, struct STAT &status) {
 #ifdef WINDOWS
-  return _wstat64(WcharStr(path).wchar_str, &status);
+  return _wstat64(WcharStr(path).wchar_str, &status) == 0;
 #else
-  return stat(path, &status) != 0;
+  return stat(path, &status) == 0;
 #endif
 }
 
@@ -121,13 +87,10 @@ static bool statPath(const char *path, struct STAT &status) {
  * 2: when exists and is a directory
  * 3: when does not exist, but looks like a file       /abcd/efgh
  * 4: when does not exist, but looks like a directory  /abcd/efgh/
- * @param path
- * @return
  */
 static int examinePath(const char *path) {
   struct STAT status {};
-  const bool success = static_cast<int>(statPath(path, status)) == 0;
-  if( !success ) {
+  if( !statPath(path, status) ) {
     if( errno == ENOENT ) { //no such file or directory
       const int len = static_cast<int>(strlen(path));
       if( len == 0 ) {
@@ -153,27 +116,22 @@ static int examinePath(const char *path) {
 
 /**
  * Creates a directory if it does not exist
- * @param dir
- * @return
+ * @return 0: failed, 1: created successfully, 2: the directory already exists
  */
 static int makeDir(const char *dir) {
   if( examinePath(dir) == 2 ) { //existing directory
-    return 2; //2: directory already exists, no need to create
+    return 2;
   }
 #ifdef WINDOWS
   const bool created = (CreateDirectoryW(WcharStr(dir).wchar_str, nullptr) == TRUE);
 #else
-#ifdef UNIX
   const bool created = (mkdir(dir, 0777) == 0);
-#else
-#error Unknown target system
 #endif
-#endif
-  return created ? 1 : 0; //0: failed, 1: created successfully
+  return created ? 1 : 0;
 }
 
 /**
- * Creates directories recursively if they don't exist.
+ * Creates the directories in the path of filename if they don't exist.
  */
 static void makeDirectories(const char *filename) {
   String path(filename);

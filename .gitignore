@@ -1,15 +1,5 @@
 .clang-format
 .idea
-CMakeCache.txt
-cmake_install.cmake
-cmake-build-debug
-compile_commands.json
-build/*.o
-build/_error?_*.txt
-paq8px.exe
-paq8px.cbp
-CMakeFiles
-*.paq8px*
 afl-in
 afl-out
 # Visual Studio Specific ignores
@@ -19,7 +9,10 @@ x64/
 release/
 debug/
 packages/
+/src/Release-FULL
 /src/Release-SFX
 /Release-FULL
 /Release-SFX
-/src/Release-FULL
+/build/*.exe
+/build/_error*
+/build/obj

@@ -4,10 +4,18 @@
 #include "../Encoder.hpp"
 #include <cstdint>
 
+/**
+ * What to do with the decoded data:
+ * write it to the output file, compare it with the output file, or drop it.
+ */
 enum class FMode {
-    FDECOMPRESS, FCOMPARE, FDISCARD
+  FDECOMPRESS, FCOMPARE, FDISCARD
 };
 
+/**
+ * A filter transforms a block of a certain type into a better compressible
+ * form (encode) and back (decode).
+ */
 class Filter {
 protected:
   Encoder *encoder = nullptr;

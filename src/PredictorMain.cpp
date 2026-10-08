@@ -4,12 +4,10 @@
 PredictorMain::PredictorMain(Shared* const sh) : shared(sh), sse(sh) {
   shared->reset();
   mixerFactory = new MixerFactory(shared);
-  models = new Models(sh, mixerFactory);
-  contextModel = new ContextModel(sh, models, mixerFactory);
+  contextModel = new ContextModel(sh, mixerFactory);
 }
 
 PredictorMain::~PredictorMain() {
-  delete models;
   delete contextModel;
   delete mixerFactory;
 }

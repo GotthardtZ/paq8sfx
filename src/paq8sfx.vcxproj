@@ -21,6 +21,10 @@
       <Configuration>Release-SFX</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Release-SFX-Free|x64">
+      <Configuration>Release-SFX-Free</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -67,6 +71,13 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-FULL|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -94,6 +105,9 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-FULL|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -115,6 +129,10 @@
     <LinkIncremental>false</LinkIncremental>
     <TargetName>stub</TargetName>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetName>stub-free</TargetName>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-FULL|x64'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
@@ -126,6 +144,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>FULL;WIN32;_DEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -164,6 +183,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SFX;WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>MinSpace</Optimization>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
@@ -184,11 +204,13 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;FULL;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FULL;WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -233,6 +255,76 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
     </Link>
   </ItemDefinitionGroup>
+  <!--
+    Release-SFX-Free: the libc-free stub (x64 only). It is linked without the
+    C/C++ runtime library and imports kernel32.dll only; src/platform/ provides
+    the C functions it needs. The settings that make this possible:
+
+    Compiler
+      /MT                    the C library headers declare ordinary functions
+                             (not DLL imports), so that the functions of
+                             src/platform/ are used. Nothing is linked from the CRT.
+      /GS- /sdl- /guard:cf-  no security checks: they need support code from the CRT
+      /GR- /EHs-c-           no run-time type information, no exceptions
+      /Zc:threadSafeInit-    no thread-safe initialization of local static
+                             variables: it needs support code from the CRT
+      /Gs1048576             no stack probes (calls to __chkstk, which is in the
+                             CRT) for functions that use less than 1 MB of stack.
+                             Safe, because the linker settings below commit the
+                             whole 1 MB stack when the program starts.
+    Linker
+      /NODEFAULTLIB, kernel32.lib   link kernel32.dll only
+      /ENTRY:sfx_entry       the program starts in Platform_Windows.cpp
+      /STACK:1048576,1048576 1 MB of stack, committed at once (see /Gs)
+      /FIXED /DYNAMICBASE:NO no relocation table (smaller; no ASLR for the stub)
+      /MANIFEST:NO           no manifest; a console program does not need one
+
+    CRuntime.cpp and Platform_Windows.cpp are compiled without whole program
+    optimization (see the two files in the list at the end).
+  -->
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>SFX;SFX_FREESTANDING;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <Optimization>MinSpace</Optimization>
+      <!-- /Ob1 measured smallest after UPX (30,720 vs 31,744 for /Ob0, 32,256 for /Ob2) -->
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <ControlFlowGuard>false</ControlFlowGuard>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <ExceptionHandling>false</ExceptionHandling>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalOptions>/Zc:threadSafeInit- /Gs1048576 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalDependencies>kernel32.lib</AdditionalDependencies>
+      <EntryPointSymbol>sfx_entry</EntryPointSymbol>
+      <StackReserveSize>1048576</StackReserveSize>
+      <StackCommitSize>1048576</StackCommitSize>
+      <DataExecutionPrevention>false</DataExecutionPrevention>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <FixedBaseAddress>true</FixedBaseAddress>
+      <GenerateManifest>false</GenerateManifest>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-FULL|x64'">
     <ClCompile>
       <PrecompiledHeader>
@@ -256,7 +348,7 @@
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -276,7 +368,6 @@
     <ClCompile Include="ArithmeticEncoder.cpp" />
     <ClCompile Include="Block.cpp" />
     <ClCompile Include="BlockType.cpp" />
-    <ClCompile Include="Clz.hpp" />
     <ClCompile Include="ContextMap2.cpp" />
     <ClCompile Include="model\SimilarityEmaFunctionsFactory.cpp" />
     <ClCompile Include="model\SimilarityEmaFunctions_AVX2.cpp" />
@@ -297,7 +388,6 @@
     <ClCompile Include="Mixer_AVX2.cpp" />
     <ClCompile Include="Mixer_Scalar.cpp" />
     <ClCompile Include="Mixer_SSE2.cpp" />
-    <ClCompile Include="Models.cpp" />
     <ClCompile Include="model\ChartModel.cpp" />
     <ClCompile Include="model\ContextModel.cpp" />
     <ClCompile Include="model\ContextModelGeneric.cpp" />
@@ -308,6 +398,15 @@
     <ClCompile Include="model\SparseBitModel.cpp" />
     <ClCompile Include="model\SparseModel.cpp" />
     <ClCompile Include="paq8sfx.cpp" />
+    <ClCompile Include="platform\CRuntime.cpp">
+      <!-- no whole program optimization (/GL): this file defines memcpy, memset and memmove, which MSVC refuses under /GL (error C2268) -->
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="platform\Platform_Linux.cpp" />
+    <ClCompile Include="platform\Platform_Windows.cpp">
+      <!-- no whole program optimization (/GL): the entry point and the constructor table must stay as they are written (the GCC builds use -fno-lto for the same reason) -->
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">false</WholeProgramOptimization>
+    </ClCompile>
     <ClCompile Include="PredictorMain.cpp" />
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="Shared.cpp" />
@@ -321,6 +420,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AdaptiveMap.hpp" />
+    <ClInclude Include="platform\Platform.hpp" />
     <ClInclude Include="APM.hpp" />
     <ClInclude Include="APM1.hpp" />
     <ClInclude Include="APMPost.hpp" />
@@ -328,6 +428,7 @@
     <ClInclude Include="Array.hpp" />
     <ClInclude Include="Block.hpp" />
     <ClInclude Include="BlockType.hpp" />
+    <ClInclude Include="Clz.hpp" />
     <ClInclude Include="Bucket16.hpp" />
     <ClInclude Include="ContextMap2.hpp" />
     <ClInclude Include="model\SimilarityEmaFunctionsFactory.hpp" />
@@ -346,6 +447,7 @@
     <ClInclude Include="file\fileUtils.hpp" />
     <ClInclude Include="file\fileUtils2.hpp" />
     <ClInclude Include="file\FileExeRead.hpp" />
+    <ClInclude Include="file\FileMemRead.hpp" />
     <ClInclude Include="filter\exe.hpp" />
     <ClInclude Include="filter\Filter.hpp" />
     <ClInclude Include="filter\Filters.hpp" />
@@ -361,7 +463,6 @@
     <ClInclude Include="Mixer_AVX2.hpp" />
     <ClInclude Include="Mixer_Scalar.hpp" />
     <ClInclude Include="Mixer_SSE2.hpp" />
-    <ClInclude Include="Models.hpp" />
     <ClInclude Include="model\ChartModel.hpp" />
     <ClInclude Include="model\ContextModel.hpp" />
     <ClInclude Include="model\ExeModel.hpp" />
@@ -375,7 +476,7 @@
     <ClInclude Include="Random.hpp" />
     <ClInclude Include="RingBuffer.hpp" />
     <ClInclude Include="Shared.hpp" />
-    <ClInclude Include="simd.hpp" />
+    <ClInclude Include="Simd.hpp" />
     <ClInclude Include="SIMDType.hpp" />
     <ClInclude Include="Squash.hpp" />
     <ClInclude Include="SSE.hpp" />

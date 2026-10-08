@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Models.hpp"
 #include "SSE.hpp"
 #include "Shared.hpp"
 #include "model/ContextModel.hpp"
@@ -11,7 +10,6 @@
  */
 class PredictorMain {
 private:
-  Models *models;
   MixerFactory* mixerFactory;
   ContextModel* contextModel;
   SSE sse;

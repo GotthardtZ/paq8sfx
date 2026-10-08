@@ -9,8 +9,8 @@
 
 /**
  * This is an abstract class for all the required file operations.
- * The main purpose of these classes is to keep temporary files in RAM as mush as possible. The default behaviour is to simply
- * pass function calls to the operating system - except in case of temporary files.
+ * FileDisk passes them on to the operating system, FileTmp keeps a temporary
+ * file in RAM, and FileMemRead reads from a memory buffer.
  */
 class File {
 public:

@@ -1,17 +1,6 @@
 ﻿#include "FileDisk.hpp"
 #include "../SystemDefines.hpp"
 
-FILE* FileDisk::makeTmpFile() {
-#if defined(WINDOWS)
-  wchar_t szTempFileName[MAX_PATH];
-  const UINT uRetVal = GetTempFileNameW(L".", L"tmp", 0, szTempFileName);
-  if (uRetVal == 0) return nullptr;
-  return fopen(Utf8Str(szTempFileName).utf8_str, "w+bTD");
-#else
-  return tmpfile();
-#endif
-}
-
 FileDisk::FileDisk() { file = nullptr; }
 
 FileDisk::~FileDisk() { close(); }
@@ -33,15 +22,6 @@ void FileDisk::create(const char *filename) {
   file = openFile(filename, WRITE);
   if( file == nullptr ) {
     printf("Unable to create file %s (%s)", filename, strerror(errno));
-    quit();
-  }
-}
-
-void FileDisk::createTmp() {
-  assert(file == nullptr);
-  file = makeTmpFile();
-  if( file == nullptr ) {
-    printf("Unable to create temporary file (%s)", strerror(errno));
     quit();
   }
 }

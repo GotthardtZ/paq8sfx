@@ -13,6 +13,8 @@ Global
 		Release-FULL|x86 = Release-FULL|x86
 		Release-SFX|x64 = Release-SFX|x64
 		Release-SFX|x86 = Release-SFX|x86
+		Release-SFX-Free|x64 = Release-SFX-Free|x64
+		Release-SFX-Free|x86 = Release-SFX-Free|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Debug|x64.ActiveCfg = Debug|x64
@@ -27,6 +29,9 @@ Global
 		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX|x64.Build.0 = Release-SFX|x64
 		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX|x86.ActiveCfg = Release-SFX|Win32
 		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX|x86.Build.0 = Release-SFX|Win32
+		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX-Free|x64.ActiveCfg = Release-SFX-Free|x64
+		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX-Free|x64.Build.0 = Release-SFX-Free|x64
+		{9E2C931B-06D2-4FCF-B042-FA634E5F8CEC}.Release-SFX-Free|x86.ActiveCfg = Release-SFX-Free|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

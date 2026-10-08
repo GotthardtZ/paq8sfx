@@ -38,7 +38,7 @@ check_content() {
 # A process killed by signal N exits with 128+N.
 describe_exit() {
     case "$1" in
-        132) echo "crashed: illegal instruction [SIGILL] - CPU without AVX2? See AVX2_ONLY in src/SystemDefines.hpp" ;;
+        132) echo "crashed: illegal instruction [SIGILL] - CPU without AVX2? The stub was built with AVX2_ONLY - see Build settings in README.md" ;;
         134) echo "crashed: aborted [SIGABRT]" ;;
         135) echo "crashed: bus error [SIGBUS]" ;;
         136) echo "crashed: arithmetic error [SIGFPE]" ;;

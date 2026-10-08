@@ -3,7 +3,7 @@
 #include "File.hpp"
 
 /**
- * This class is responsible for temporary files in RAM.
+ * This class is responsible for temporary files.
  * All file operations use RAM exclusively.
  */
 class FileTmp : public File {
