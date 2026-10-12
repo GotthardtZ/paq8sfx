@@ -30,12 +30,16 @@ public:
   File* archive;         ///< Compressed data file to write during encoding and read during decoding
 
   void prefetch();                       ///< For decoding: Fill `x` with the first 32 bits of the archive before decoding
+#ifdef FULL
   void flush();                          ///< For encoding: Flush any remaining bits to the archive after encoding
   void encodeBit(uint32_t p, int bit);   ///< For encoding: Encode one bit with probability p/2^PRECISION that the bit is 1
+#endif
   int  decodeBit(uint32_t p);            ///< For decoding: Decode one bit; returns 1 with probability p/2^PRECISION
 
 private:
   int  bit_read();                            ///< Read one bit from the archive
+#ifdef FULL
   void bit_write(int bit);                    ///< Write one bit to the archive
   void bit_write_with_pending(int bit);       ///< Write one bit, then flush all pending (opposite) bits
+#endif
 };

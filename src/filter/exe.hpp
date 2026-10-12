@@ -63,13 +63,8 @@ public:
     }
   }
 
-#else
-
-  // The stub only decodes.
-  void encode(File* /*in*/, File* /*out*/, uint64_t /*size*/, int /*info*/, int& /*headerSize*/) override {
-  }
-
 #endif
+  // The stub only decodes; without FULL there is no encode() to override.
 
   /**
    * Decompresses size bytes with the encoder and reverses the transform.

@@ -20,7 +20,9 @@ class Filter {
 protected:
   Encoder *encoder = nullptr;
 public:
+#ifdef FULL
   virtual void encode(File *in, File *out, uint64_t size, int info, int &headerSize) = 0;
+#endif
   virtual uint64_t decode(File *in, File *out, FMode fMode, uint64_t size, uint64_t &diffFound) = 0;
 
   void setEncoder(Encoder &en) {

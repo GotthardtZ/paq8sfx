@@ -2,6 +2,7 @@
 
 namespace Block {
 
+#ifdef FULL
   void EncodeBlockHeader(Encoder* const encoder, BlockType blockType, uint64_t blockSize, int blockInfo) {
     encoder->initContextForBlockModel(BlockType::DEFAULT, 0);
     EncodeBlockType(encoder, blockType);
@@ -10,6 +11,7 @@ namespace Block {
       EncodeInfo(encoder, blockInfo);
     encoder->initContextForBlockModel(blockType, blockInfo);
   }
+#endif
 
   uint64_t DecodeBlockHeader(Encoder* const encoder) { //returns blockSize
     encoder->initContextForBlockModel(BlockType::DEFAULT, 0);
@@ -22,21 +24,25 @@ namespace Block {
     return blockSize;
   }
 
+#ifdef FULL
   void EncodeBlockType(Encoder* const encoder, BlockType blocktype) {
     encoder->compressByte(encoder->predictorMain, uint8_t(blocktype));
   }
+#endif
 
   BlockType DecodeBlockType(Encoder* const encoder) {
     BlockType blockType = (BlockType)encoder->decompressByte(encoder->predictorMain);
     return blockType;
   }
 
+#ifdef FULL
   void EncodeBlockSize(Encoder* const encoder, uint64_t blockSize) {
     encoder->compressByte(encoder->predictorMain, (blockSize >> 24) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (blockSize >> 16) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (blockSize >> 8) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (blockSize) & 0xFF);
   }
+#endif
 
   uint64_t DecodeBlockSize(Encoder* const encoder) {
     uint64_t blockSize = 0;
@@ -52,12 +58,14 @@ namespace Block {
     return blockSize;
   }
 
+#ifdef FULL
   void EncodeInfo(Encoder* const encoder, int info) {
     encoder->compressByte(encoder->predictorMain, (info >> 24) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (info >> 16) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (info >> 8) & 0xFF);
     encoder->compressByte(encoder->predictorMain, (info) & 0xFF);
   }
+#endif
 
   int DecodeInfo(Encoder* const encoder) {
     uint32_t info = 0;

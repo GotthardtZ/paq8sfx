@@ -3,8 +3,10 @@
 Encoder::Encoder(PredictorMain* predictorMain, Mode m, File *f) :
   ari(f), 
   mode(m), 
-  archive(f), 
+  archive(f),
+#ifdef FULL
   alt(nullptr),
+#endif
   predictorMain(predictorMain)
 {
   if( mode == DECOMPRESS ) {
@@ -26,6 +28,7 @@ Mode Encoder::getMode() const { return mode; }
 
 uint64_t Encoder::size() const { return archive->curPos(); }
 
+#ifdef FULL
 void Encoder::flush() {
   if(mode == COMPRESS) {
     ari.flush();
@@ -44,12 +47,15 @@ void Encoder::compressByte(PredictorMain *predictor, uint8_t c) {
   }
   assert(predictor->shared->State.c1 == c);
 }
+#endif // FULL
 
 uint8_t Encoder::decompressByte(PredictorMain *predictor) {
+#ifdef FULL
   if( mode == COMPRESS ) {
     assert(alt);
     return alt->getchar();
   }
+#endif
   for( int i = 0; i < 8; ++i ) {
     int p = predictor->p();
     int y = ari.decodeBit(p);
@@ -76,10 +82,12 @@ void Encoder::setStatusRange(float perc1, float perc2) {
   p2 = perc2;
 }
 
+#ifdef FULL
 void Encoder::printStatus(uint64_t n, uint64_t size) const {
   fprintf(stderr, "%6.2f%%\b\b\b\b\b\b\b", (p1 + (p2 - p1) * n / (size + 1)) * 100);
   fflush(stderr);
 }
+#endif
 
 void Encoder::printStatus() const {
   fprintf(stderr, "%6.2f%%\b\b\b\b\b\b\b", float(size()) / (p2 + 1) * 100);

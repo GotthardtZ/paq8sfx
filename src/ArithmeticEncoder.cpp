@@ -16,6 +16,7 @@ int ArithmeticEncoder::bit_read() {
   return (B >> bits_in_B) & 1;
 }
 
+#ifdef FULL
 // Write one bit to the archive, flushing a full byte when the buffer is full.
 void ArithmeticEncoder::bit_write(const int bit) {
   B = (B << 1) | bit;
@@ -41,6 +42,7 @@ void ArithmeticEncoder::flush() {
     x1 <<= 1;
   } while (bits_in_B != 0);
 }
+#endif // FULL
 
 // Prime the decode window with the first 32 bits of compressed data.
 void ArithmeticEncoder::prefetch() {
@@ -48,6 +50,7 @@ void ArithmeticEncoder::prefetch() {
     x = (x << 1) | bit_read();
 }
 
+#ifdef FULL
 // Encode one bit. p is the probability (scaled by 2^PRECISION) that bit == 1.
 void ArithmeticEncoder::encodeBit(uint32_t p, const int bit) {
   if (p == 0) p++;
@@ -73,6 +76,7 @@ void ArithmeticEncoder::encodeBit(uint32_t p, const int bit) {
     x2 = (x2 << 1) | 0x80000001;
   }
 }
+#endif // FULL
 
 // Decode one bit. p is the probability (scaled by 2^PRECISION) that the bit is 1.
 int ArithmeticEncoder::decodeBit(uint32_t p) {

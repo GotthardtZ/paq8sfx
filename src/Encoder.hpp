@@ -17,7 +17,9 @@ private:
   ArithmeticEncoder ari;
   const Mode mode; /**< Compress or decompress? */
   File* archive; /**< Compressed data file */
+#ifdef FULL
   File *alt; /**< decompressByte() source in COMPRESS mode */
+#endif
   float p1 {}, p2 {}; /**< percentages for progress indicator: 0.0 .. 1.0 */
 
   void updateModels(PredictorMain* predictor, uint32_t p, int y);
@@ -43,6 +45,7 @@ public:
     */
   uint64_t size() const;
 
+#ifdef FULL
   /**
     * Should be called exactly once after compression is done and
     * before closing @ref f. It does nothing in DECOMPRESS mode.
@@ -54,12 +57,13 @@ public:
     * @param f
     */
   void setFile(File *f);
-    
+
   /**
     * compressByte(c) in COMPRESS mode compresses one byte.
     * @param c the byte to be compressed
     */
   void compressByte(PredictorMain* predictor, uint8_t c);
+#endif // FULL
 
   /**
     * decompressByte() in DECOMPRESS mode decompresses and returns one byte.
@@ -70,6 +74,8 @@ public:
   void initContextForBlockModel(BlockType blockType, int blockInfo);
 
   void setStatusRange(float perc1, float perc2);
+#ifdef FULL
   void printStatus(uint64_t n, uint64_t size) const;
+#endif
   void printStatus() const;
 };
