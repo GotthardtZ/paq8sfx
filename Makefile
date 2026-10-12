@@ -73,13 +73,22 @@ else
   EXE    :=
 endif
 
-# NOPIE: gcc may build position independent executables by default; the
-# libc-free stub is not one. clang needs no option for that with -static.
+# LTO: gcc runs the link-time code generation in parallel with -flto=N or
+# -flto=auto (plain -flto works too, but GCC 11+ then warns about serial
+# compilation). On a Windows host GCC 10 cannot count the CPUs for -flto=auto
+# and runs 'make -j0', which fails; so the number is given there.
+# clang accepts only -flto (or -flto=thin/full).
 ifneq ($(findstring clang,$(CXX_VERSION)),)
   LTO   := -flto
   NOPIE :=
 else
-  LTO   := -flto=auto
+  ifeq ($(OS),Windows_NT)
+    LTO := -flto=$(or $(NUMBER_OF_PROCESSORS),1)
+  else
+    LTO := -flto=auto
+  endif
+  # NOPIE: gcc may build position independent executables by default; the
+  # libc-free stub is not one.
   NOPIE := -no-pie
   ifeq ($(TARGET),windows)
     # gcc bug: LTO does not work properly with -Os without this (MinGW-w64)

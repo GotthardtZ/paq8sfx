@@ -1,4 +1,4 @@
-﻿# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
+# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
 
 ## About
 
@@ -20,7 +20,7 @@ Two terms are used throughout this document: an *archive* is a single compressed
 
 `paq8sfx` is most suitable for creating a self-extracting package for compression benchmarks in which the size of the decompressor's executable is counted in the size of the whole compressed package.
 
-For decompressors with small executables [UPX](https://upx.github.io/) will do fine, but for larger executables (such as cmix and its derivatives, or paq8px) `paq8sfx` is the better choice: the stub costs about 24-31 KB (the libc-free stub after UPX, see [Stub size](#stub-size)), and that is recovered as soon as `paq8sfx` saves more than that over UPX.
+For decompressors with small executables [UPX](https://upx.github.io/) will do fine, but for larger executables (such as cmix and its derivatives, or paq8px) `paq8sfx` is the better choice: the stub costs about 23-31 KB (the libc-free stub after UPX, see [Stub size](#stub-size)), and that is recovered as soon as `paq8sfx` saves more than that over UPX.
 
 It is not a general-purpose archiver:
 
@@ -180,7 +180,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 > The benchmark figures have not been updated for the current source yet: the paq8sfx rows include a 40'448-byte stub (see [Stub size](#stub-size) for the current ones), and the compressed sizes may differ slightly.
 
 - **UPX**: `upx --best --ultra-brute`, UPX 5.2.0. The result is a self-extracting executable; its decompression stub is already included in the compressed size.
-- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the UPX-compressed generic glibc-free static Windows x64 stub (26'600 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
+- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the UPX-compressed generic glibc-free static Windows x64 stub (25'600 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
 - **paq8px**: paq8px_v216, level `-12`, shown for reference. Its result is not self-extracting: it needs the 1.3 MB paq8px executable to decompress, which is not counted here.
 
 **paq8px_v216.exe, [paq8px v216](https://github.com/hxim/paq8px/releases/tag/v216)** - 1'293'312 bytes
@@ -188,7 +188,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 510'976 | included | 510'976 | 39.5% | 7 sec |
-| paq8sfx -12 | 323'052 | 25'600 | **348'652** | 26.9% | 120 sec |
+| paq8sfx -12 | 323'052 | 25'600 | **348'652** | 27.0% | 120 sec |
 | paq8px -12 | 314'761 | - | 314'761 | 24.3% | 270 sec |
 
 **bsc.exe, [bsc 3.3.12](https://github.com/IlyaGrebnov/libbsc/releases/tag/v3.3.12)** - 6'114'304 bytes
@@ -204,7 +204,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 1'478'742 | included | 1'478'742 | 60.5% | 8 sec |
-| paq8sfx -12 | 268'760 | 25'600 | **394'360** | 12.0% | 193 sec |
+| paq8sfx -12 | 268'760 | 25'600 | **294'360** | 12.0% | 193 sec |
 | paq8px -12 | 257'256 | - | 257'256 | 10.5% | 366 sec |
 
 **zpaq64.exe [zpaq 7.15](https://github.com/zpaq/zpaq/releases/tag/7.15), 64-bit** - 1'125'376 bytes
@@ -226,7 +226,7 @@ Size of the stub in bytes after `upx --best --ultra-brute` (UPX 5.2.0), which is
 | Windows, MinGW-w64 (GCC 15.2.0) | libc-free | *25'600* | 24'576 | 25'088 | **23'552** | `kernel32.dll` only |
 | | normal | 41'472 | 40'448 | 40'960 | 39'936 | GCC runtime DLLs |
 | Windows, VS 2022 (MSVC 19.44.35216) | libc-free | 30'720 | 29'696 | 29'696 | 28'672 | `kernel32.dll` only |
-| | normal | 36'352 | 34'816 | 35'840 |  34'304 | VC++ Redistributable |
+| | normal | 36'352 | 34'816 | 35'840 | 34'304 | VC++ Redistributable |
 | | normal, x86 | 32'768 | n/a | 32'768 | n/a | VC++ Redistributable |
 | Linux, gcc 13.3.0 | libc-free | *25'992* | 24'984 | 25'396 | **24'408** | nothing (static) |
 | | normal | 30'948 | 29'624 | 29'332 | 29'104 | system C/C++ libraries |
@@ -247,6 +247,7 @@ A C++17 compiler for x64 is required. The same source is compiled twice: once wi
 
 Run `build\build-mingw-w64.cmd`. It creates `paq8sfx.exe`, `stub.exe` and `stub-free.exe` (the libc-free stub) in the `build` folder.
 The script expects MinGW-w64 in `c:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1`; edit the path in the script if yours is elsewhere.
+It compiles everything from scratch every time; `build\build-mingw-w64-make.cmd` builds the same programs with the Makefile and recompiles only what has changed (see [Windows, MinGW-w64, with make](#windows-mingw-w64-with-make)).
 
 ### Windows, Visual Studio
 
@@ -298,7 +299,19 @@ The target (Linux or Windows) is taken from the compiler, so the same rules cros
 
 The Makefile needs MinGW-w64 (it brings `g++` and `mingw32-make`) and a few Unix tools: `sh`, `mkdir`, `rm`, `printf` and `cmp`. Git for Windows has them all, in its `usr\bin` folder. It is installed either on its own (it is the package that provides Git Bash) or by Visual Studio, when the "Git" individual component is selected in the Visual Studio Installer.
 
-From a Command Prompt, in the project root (adjust the two paths to your installation):
+The simplest way is `build\build-mingw-w64-make.cmd`. It sets the path, checks that the tools are there and runs `mingw32-make` with one job per CPU thread. Like `build-mingw-w64.cmd`, it creates `paq8sfx.exe`, `stub.exe` and `stub-free.exe` in the `build` folder, but it recompiles only what has changed. Edit `mingw_dir` and `git_dir` at the top of the script if MinGW-w64 or Git is installed elsewhere. If the build fails, the compiler messages are in `build\_error.txt`.
+
+Arguments are passed on to make:
+
+| Command | What it does |
+| --- | --- |
+| `build-mingw-w64-make.cmd` | Builds all three programs. |
+| `build-mingw-w64-make.cmd clean` | Removes what the Makefile created. Run it on its own, not together with other targets. |
+| `build-mingw-w64-make.cmd stub-free V=1` | Any target or setting of the table above, e.g. `AVX2_ONLY=1`. |
+
+The stub settings can also be set once near the top of the script (`avx2_only`, `extract_only`).
+
+To run make by hand instead, from a Command Prompt in the project root (adjust the two paths to your installation):
 
 ```
 set PATH=c:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1\bin;C:\Program Files\Git\usr\bin;%PATH%
@@ -372,6 +385,7 @@ How to build the stub with `AVX2_ONLY`:
 | --- | --- |
 | Makefile | `make AVX2_ONLY=1` |
 | `build-mingw-w64.cmd` | Set `sfxsimd=-DAVX2_ONLY` near the top of the script. |
+| `build-mingw-w64-make.cmd` | Set `avx2_only=1` near the top of the script, or pass `AVX2_ONLY=1`. |
 | `build-linux-with-*.sh` | Set `SFX_SIMD="-DAVX2_ONLY"` near the top of the script. |
 | Visual Studio | Add `AVX2_ONLY` to *C/C++ → Preprocessor → Preprocessor Definitions* of the `Release-SFX` / `Release-SFX-Free` x64 configuration. Do not add it to the x86 configurations. |
 
@@ -386,6 +400,7 @@ Builds the [extract-only stub](#the-extract-only-stub) instead of the full one. 
 | --- | --- |
 | Makefile | `make SFX_EXTRACT_ONLY=1` |
 | `build-mingw-w64.cmd` | Set `sfxmode=-DSFX_EXTRACT_ONLY` near the top of the script. |
+| `build-mingw-w64-make.cmd` | Set `extract_only=1` near the top of the script, or pass `SFX_EXTRACT_ONLY=1`. |
 | `build-linux-with-*.sh` | Set `SFX_MODE="-DSFX_EXTRACT_ONLY"` near the top of the script. |
 | Visual Studio | Add `SFX_EXTRACT_ONLY` to *C/C++ → Preprocessor → Preprocessor Definitions* of the `Release-SFX` or `Release-SFX-Free` configuration. |
 

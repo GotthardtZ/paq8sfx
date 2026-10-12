@@ -51,7 +51,7 @@ rem * Stubs only: empty = full stub (extract + AutoRun, -d, -a);
 rem * -DSFX_EXTRACT_ONLY = extract-only stub, its packages are assembled with paq8sfx -a
 set sfxmode=
 
-set options=-DNDEBUG %safefp% -m64 -march=nocona -mtune=generic -std=gnu++17 -fno-rtti -flto=auto -s -Wl,--gc-sections -fno-exceptions -fno-declone-ctor-dtor
+set options=-DNDEBUG %safefp% -m64 -march=nocona -mtune=generic -std=gnu++17 -fno-rtti -flto=%NUMBER_OF_PROCESSORS% -s -Wl,--gc-sections -fno-exceptions -fno-declone-ctor-dtor
 
 rem * Clean previous build artifacts
 del /q _error1.txt _error2.txt _error3.txt paq8sfx.exe stub.exe stub-free.exe *.o _sources.txt 2>nul
