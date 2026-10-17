@@ -22,7 +22,8 @@ SFX_SIMD=""
 SFX_MODE=""
 
 CXX=g++
-LTO=-flto=auto
+# One-process link-time optimization, the same as the Makefile
+LTO="-flto -flto-partition=none"
 SOURCES="../src/*.cpp ../src/file/*.cpp ../src/model/*.cpp"
 
 # Floating point results must be reproducible: never add -ffast-math or -Ofast.

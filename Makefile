@@ -49,12 +49,8 @@ STRIP          ?= -s
 
 # ---------------------------------------------------------------- platform --
 
-ifeq ($(OS),Windows_NT)
-  # Windows host (MinGW-w64): needs sh, mkdir, rm, printf and cmp on the path
-  # (Git for Windows: usr\bin). GCC's LTO wrapper needs to know what 'make' is
-  # called.
-  export MAKE
-endif
+# Windows host (MinGW-w64): needs sh, mkdir, rm, printf and cmp on the path
+# (Git for Windows: usr\bin).
 
 # ---------------------------------------------------------------- compiler --
 
@@ -73,20 +69,16 @@ else
   EXE    :=
 endif
 
-# LTO: gcc runs the link-time code generation in parallel with -flto=N or
-# -flto=auto (plain -flto works too, but GCC 11+ then warns about serial
-# compilation). On a Windows host GCC 10 cannot count the CPUs for -flto=auto
-# and runs 'make -j0', which fails; so the number is given there.
+# LTO: gcc does the link-time optimization in one process
+# (-flto-partition=none). Otherwise it runs it in parallel through a generated
+# makefile, which on Windows needs extra care with GCC 14 and older (make -j0,
+# 'Error 1 (ignored)'). paq8sfx is small, so that's not a problem.
 # clang accepts only -flto (or -flto=thin/full).
 ifneq ($(findstring clang,$(CXX_VERSION)),)
   LTO   := -flto
   NOPIE :=
 else
-  ifeq ($(OS),Windows_NT)
-    LTO := -flto=$(or $(NUMBER_OF_PROCESSORS),1)
-  else
-    LTO := -flto=auto
-  endif
+  LTO   := -flto -flto-partition=none
   # NOPIE: gcc may build position independent executables by default; the
   # libc-free stub is not one.
   NOPIE := -no-pie

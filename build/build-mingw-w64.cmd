@@ -34,16 +34,13 @@ where gcc.exe >nul 2>&1 || (
   exit /b 1
 )
 
-rem * Set MAKE for parallel LTO
-rem * Why: GCC's LTO wrapper needs a 'make' executable to coordinate parallel compilation jobs, and it can't find it automatically.
-rem * By explicitly setting MAKE=mingw32-make, we tell it where to look.
-set MAKE=mingw32-make
-
 rem * Force floating point reproducibility explicitly
 set safefp=-fno-fast-math -ffp-contract=off
 
 rem * Set compiler options (release by default)
 rem -fno-declone-ctor-dtor is there because of a gcc bug: FLTO is not working properly with -Os
+rem * -flto-partition=none: the link-time optimization runs in one process, without make
+rem * (GCC 14 and older print 'Error 1 (ignored)' on Windows when it runs in parallel)
 rem * Stubs only: empty = every code path, runtime selection (any x64 CPU);
 rem * -DAVX2_ONLY = AVX2 code path only (smaller, needs an AVX2 CPU)
 set sfxsimd=
@@ -51,7 +48,7 @@ rem * Stubs only: empty = full stub (extract + AutoRun, -d, -a);
 rem * -DSFX_EXTRACT_ONLY = extract-only stub, its packages are assembled with paq8sfx -a
 set sfxmode=
 
-set options=-DNDEBUG %safefp% -m64 -march=nocona -mtune=generic -std=gnu++17 -fno-rtti -flto=%NUMBER_OF_PROCESSORS% -s -Wl,--gc-sections -fno-exceptions -fno-declone-ctor-dtor
+set options=-DNDEBUG %safefp% -m64 -march=nocona -mtune=generic -std=gnu++17 -fno-rtti -flto -flto-partition=none -s -Wl,--gc-sections -fno-exceptions -fno-declone-ctor-dtor
 
 rem * Clean previous build artifacts
 del /q _error1.txt _error2.txt _error3.txt paq8sfx.exe stub.exe stub-free.exe *.o _sources.txt 2>nul
