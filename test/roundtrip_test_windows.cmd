@@ -12,10 +12,9 @@ set "GREEN=%ESC%[92m"
 set "RED=%ESC%[91m"
 set "RESET=%ESC%[0m"
 
-rem Access MinGW-w64 C++ runtime and libraries:
-rem - libgcc_s_seh-1.dll
-rem - libstdc++-6.dll
-rem - libwinpthread-1.dll
+rem MinGW-w64 bin folder on the path, in case a program needs one of its DLLs
+rem (the C programs of this project do not; older C++ builds needed
+rem libgcc_s_seh-1.dll, libstdc++-6.dll and libwinpthread-1.dll):
 set "mingw=C:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1"
 set "path=%mingw%\bin;%path%"
 

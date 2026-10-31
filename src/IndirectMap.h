@@ -1,38 +1,34 @@
-#pragma once
+﻿#pragma once
 
-#include "IPredictor.hpp"
-#include "Hash.hpp"
-#include "Mixer.hpp"
-#include "Shared.hpp"
-#include "StateMap.hpp"
-#include "UpdateBroadcaster.hpp"
-#include <cassert>
-#include <cstdint>
+#include "IPredictor.h"
+#include "Hash.h"
+#include "Mixer.h"
+#include "Random.h"
+#include "Shared.h"
+#include "StateMap.h"
 
-class IndirectMap : IPredictor {
-public:
-  static constexpr int MIXERINPUTS = 2;
+enum { IndirectMap_MIXERINPUTS = 2 };
 
-private:
-  const Shared * const shared;
+typedef struct IndirectMap {
+  IPredictor predictor;
+  const Shared* shared;
   Random rnd;
-  Array<uint8_t> data;
+  uint8_t* data;
   StateMap sm;
-  const uint32_t mask;
-  const uint32_t maskBits;
-  const uint32_t stride;
-  const uint32_t bTotal;
-  uint32_t b {};
-  uint32_t bCount {};
-  uint32_t context {};
-  uint8_t *cp;
+  uint32_t mask;
+  uint32_t maskBits;
+  uint32_t stride;
+  uint32_t bTotal;
+  uint32_t b;
+  uint32_t bCount;
+  uint32_t context;
+  uint8_t* cp;
   int scale;
+} IndirectMap;
 
-public:
-  IndirectMap(const Shared* const sh, int bitsOfContext, int inputBits, int scale, int limit);
-  void setDirect(uint32_t ctx);
-  void set(uint64_t ctx);
-  void update() override;
-  void setScale(int Scale);
-  void mix(Mixer &m);
-};
+void IndirectMap_init(IndirectMap* im, const Shared* sh, int bitsOfContext, int inputBits, int scale, int limit);
+void IndirectMap_destroy(IndirectMap* im);
+void IndirectMap_setDirect(IndirectMap* im, uint32_t ctx);
+void IndirectMap_set(IndirectMap* im, uint64_t ctx);
+void IndirectMap_setScale(IndirectMap* im, int Scale);
+void IndirectMap_mix(IndirectMap* im, Mixer* m);

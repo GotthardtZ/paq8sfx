@@ -1,88 +1,96 @@
 ﻿#pragma once
 
-#include <cassert>
-#include <cstdint>
-#include "Array.hpp"
-#include "Utils.hpp"
+#include "Array.h"
 
-template<class T>
-class RingBuffer {
-private:
-  Array<T> b;
-  uint32_t offset {0}; /**< Number of input bytes in buffer (not wrapped), will be masked when used for indexing */
+/**
+ * A ring buffer of bytes: the history of the input.
+ */
+typedef struct RingBuffer {
+  uint8_t* b;
+  uint32_t bufferSize;
+  uint32_t offset; /**< Number of input bytes in buffer (not wrapped), will be masked when used for indexing */
   uint32_t mask;
+} RingBuffer;
 
-public:
-  /**
-    * Creates an array of @ref size bytes (must be a power of 2).
-    * @param size number of bytes in array
-    */
-  explicit RingBuffer(const uint32_t size = 0) : b(size), mask(size - 1) {
-    assert(isPowerOf2(size));
-  }
+/**
+  * Creates an array of @ref newSize bytes (must be a power of 2).
+  * The content of the buffer is lost.
+  * @param newSize number of bytes in array
+  */
+static inline void RingBuffer_setSize(RingBuffer* const rb, const uint32_t newSize) {
+  assert(newSize > 0 && isPowerOf2(newSize));
+  Array_delete(rb->b);
+  rb->b = (uint8_t*)Array_new(newSize, 1, 16);
+  rb->bufferSize = newSize;
+  rb->offset = 0;
+  rb->mask = newSize - 1;
+}
 
-  void setSize(uint32_t newSize) {
-    assert(newSize > 0 && isPowerOf2(newSize));
-    b.resize(newSize);
-    offset = 0;
-    mask = newSize - 1;
-  }
+/**
+  * Frees the buffer.
+  */
+static inline void RingBuffer_destroy(RingBuffer* const rb) {
+  Array_delete(rb->b);
+  rb->b = NULL;
+  rb->bufferSize = 0;
+  rb->offset = 0;
+  rb->mask = 0;
+}
 
-  uint32_t getpos() const {
-    return offset;
-  }
+static inline uint32_t RingBuffer_getpos(const RingBuffer* const rb) {
+  return rb->offset;
+}
 
-  void fill(const T B) {
-    const uint32_t n = (uint32_t) b.size();
-    for( uint32_t i = 0; i < n; i++ ) {
-      b[i] = B;
-    }
+static inline void RingBuffer_fill(RingBuffer* const rb, const uint8_t B) {
+  const uint32_t n = rb->bufferSize;
+  for (uint32_t i = 0; i < n; i++) {
+    rb->b[i] = B;
   }
+}
 
-  void add(const T B) {
-    b[offset & mask] = B;
-    offset++;
-  }
+static inline void RingBuffer_add(RingBuffer* const rb, const uint8_t B) {
+  rb->b[rb->offset & rb->mask] = B;
+  rb->offset++;
+}
 
-  /**
-    * Returns a reference to the i'th byte with wrap (no out of bounds).
-    * @param i
-    * @return
-    */
-  T operator[](const uint32_t i) const {
-    return b[i & mask];
-  }
+/**
+  * Returns the i'th byte with wrap (no out of bounds).
+  * @param i
+  * @return
+  */
+static inline uint8_t RingBuffer_at(const RingBuffer* const rb, const uint32_t i) {
+  return rb->b[i & rb->mask];
+}
 
-  void set(const uint32_t i, const T B) {
-    b[i & mask] = B;
-  }
+static inline void RingBuffer_set(RingBuffer* const rb, const uint32_t i, const uint8_t B) {
+  rb->b[i & rb->mask] = B;
+}
 
-  /**
-    * Returns i'th byte back from pos (i>0) with wrap (no out of bounds)
-    * @param i
-    * @return
-    */
-  T operator()(const uint32_t i) const {
-    //assert(i!=0);
-    return b[(offset - i) & mask];
-  }
+/**
+  * Returns i'th byte back from pos (i>0) with wrap (no out of bounds)
+  * @param i
+  * @return
+  */
+static inline uint8_t RingBuffer_back(const RingBuffer* const rb, const uint32_t i) {
+  //assert(i!=0);
+  return rb->b[(rb->offset - i) & rb->mask];
+}
 
-  void reset() {
-    fill(0);
-    offset = 0;
-  }
+static inline void RingBuffer_reset(RingBuffer* const rb) {
+  RingBuffer_fill(rb, 0);
+  rb->offset = 0;
+}
 
-  /**
-    * @return the size of the RingBuffer
-    */
-  uint32_t size() {
-    return (uint32_t) b.size();
-  }
+/**
+  * @return the size of the RingBuffer
+  */
+static inline uint32_t RingBuffer_size(const RingBuffer* const rb) {
+  return rb->bufferSize;
+}
 
-  // leak internals for high-performance access
-  void leakInternals(T* &buffer_ptr, size_t& buffer_mask, size_t& head_pos) {
-    buffer_ptr = &b[0];
-    buffer_mask = mask;
-    head_pos = offset;
-  }
-};
+// leak internals for high-performance access
+static inline void RingBuffer_leakInternals(const RingBuffer* const rb, uint8_t** const buffer_ptr, size_t* const buffer_mask, size_t* const head_pos) {
+  *buffer_ptr = rb->b;
+  *buffer_mask = rb->mask;
+  *head_pos = rb->offset;
+}

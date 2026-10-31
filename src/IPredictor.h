@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /**
  * Common interface for all probability predictors (probability map and mixer classes).
@@ -9,13 +9,13 @@
  * in the prediction must update their internal state to improve future
  * predictions (adapting). In order to achieve this, a probability
  * predictor must
- *   1) inherit from the IPredictor interface,
- *   2) implement the update() interface method,
+ *   1) have an IPredictor as its first member,
+ *   2) set its update() function pointer to its update function,
  *   3) subscribe for the broadcast in p() or mix(),
  *   4) receive the update event from UpdateBroadcaster and update its internal state in update().
+ * The update function gets the IPredictor, which is the address of the predictor itself.
  */
-class IPredictor {
-public:
-  virtual void update() = 0;
-  virtual ~IPredictor() = default;
+typedef struct IPredictor IPredictor;
+struct IPredictor {
+  void (*update)(IPredictor* self);
 };

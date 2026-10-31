@@ -1,10 +1,10 @@
-﻿#include "SimilarityEmaFunctions_Scalar.hpp"
-#include "../Utils.hpp"
+﻿#include "SimilarityEmaFunctions_Scalar.h"
+#include "../Utils.h"
 
 // Scalar EMA update with ring-buffer index masking (warmup and rare wrap case).
 // Fixed-point note: diff (0..128) is shifted left 8 to form the 8.8 fixed-point current sample (0..32768).
 // Overflow check: max intermediate = 32768 * 64 = 2'097'152 < 2^21, fits in uint32.
-void SimilarityEmaFunctions_Scalar::update_with_wrapping(
+void SimilarityEmaFunctions_Scalar_update_with_wrapping(
   uint16_t* ema_buf, // 8.8 fixed-point: value = stored / 256.0
   const uint8_t* history_buffer_ptr,
   const size_t buf_base,
@@ -31,7 +31,7 @@ void SimilarityEmaFunctions_Scalar::update_with_wrapping(
     size_t ema_idx = ema_start + i;
     uint32_t r = ema_buf[ema_idx];
     r = ((r * ema_one_minus_alpha) + (current * ema_alpha)) >> 6; // divide by 64 to renormalize
-    ema_buf[ema_idx] = static_cast<uint16_t>(r);
+    ema_buf[ema_idx] = (uint16_t)(r);
 
     // Note: iterating longest-to-shortest means on equal scores, longer periods win
     //       this way we'll start at the beginning of a sequence, not at the end
@@ -54,7 +54,7 @@ void SimilarityEmaFunctions_Scalar::update_with_wrapping(
 // Scalar EMA update for two buffers over a contiguous block (no ring-buffer masking).
 // Processes slow and fast EMA buffers in a single pass for cache efficiency.
 // See update_with_wrapping for fixed-point layout and overflow notes.
-void SimilarityEmaFunctions_Scalar::update_and_find(
+void SimilarityEmaFunctions_Scalar_update_and_find(
   uint16_t* ema_buf1, 
   uint16_t* ema_buf2,
   const uint8_t* history_buffer_ptr,
@@ -89,11 +89,11 @@ void SimilarityEmaFunctions_Scalar::update_and_find(
 
     uint32_t r1 = ema_buf1[i];
     r1 = ((r1 * ema_one_minus_alpha1) + (current * ema_alpha1)) >> 6;
-    ema_buf1[i] = static_cast<uint16_t>(r1);
+    ema_buf1[i] = (uint16_t)(r1);
 
     uint32_t r2 = ema_buf2[i];
     r2 = ((r2 * ema_one_minus_alpha2) + (current * ema_alpha2)) >> 6;
-    ema_buf2[i] = static_cast<uint16_t>(r2);
+    ema_buf2[i] = (uint16_t)(r2);
 
     // Note: iterating longest-to-shortest means on equal scores, longer periods win
     //       this way we'll start at the beginning of a sequence, not at the end

@@ -1,18 +1,19 @@
 ﻿#pragma once
 
-#include "FileDisk.hpp"
+#include "FileDisk.h"
 
 /**
  * Verify that the specified file exists and is readable, determine file size.
  * Quits if the file is 2 GB or larger.
  * @todo Large file support
  */
-static uint64_t getFileSize(const char *filename) {
+static inline uint64_t getFileSize(const char* const filename) {
   FileDisk f;
-  f.open(filename, true);
-  f.setEnd();
-  const uint64_t fileSize = f.curPos();
-  f.close();
+  FileDisk_init(&f);
+  File_open(&f.base, filename, true);
+  File_setEnd(&f.base);
+  const uint64_t fileSize = File_curPos(&f.base);
+  File_close(&f.base);
   if((fileSize >> 31) != 0 ) {
     quit("Large files not supported.");
   }

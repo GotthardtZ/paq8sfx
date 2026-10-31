@@ -1,9 +1,6 @@
 ﻿#pragma once
 
-#include "Utils.hpp"
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
+#include "Utils.h"
 
 //////////////////////// Hash functions //////////////////////////
 //
@@ -22,23 +19,22 @@
 // - The golden ratio is usually preferred as a multiplier (PHI64) as it is the most irrational number
 
 // Golden ratio of 2^64
-constexpr uint64_t PHI64 = UINT64_C(0x9E3779B97F4A7C15); // 11400714819323198485
+#define PHI64 UINT64_C(0x9E3779B97F4A7C15) // 11400714819323198485
 
 // Some more arbitrary magic numbers
-constexpr uint64_t MUL64_1 = UINT64_C(0x993DDEFFB1462949);
-constexpr uint64_t MUL64_2 = UINT64_C(0xE9C91DC159AB0D2D);
-constexpr uint64_t MUL64_3 = UINT64_C(0x83D6A14F1B0CED75);
-constexpr uint64_t MUL64_4 = UINT64_C(0xA14F1B0CED5A841D);
-constexpr uint64_t MUL64_5 = UINT64_C(0xC0E51314A614F4E1);
-constexpr uint64_t MUL64_6 = UINT64_C(0xDA9CC2600AE45A25);
-constexpr uint64_t MUL64_7 = UINT64_C(0x826797AA04A65735);
-constexpr uint64_t MUL64_8 = UINT64_C(0x2375BE54C41A08ED);
-constexpr uint64_t MUL64_9 = UINT64_C(0xD39104E950564B39);
-constexpr uint64_t MUL64_10 = UINT64_C(0x3091697D5E685621);
-constexpr uint64_t MUL64_11 = UINT64_C(0x20EB84EE04A3C7E1);
-constexpr uint64_t MUL64_12 = UINT64_C(0xF501F1D0944B2385);
-constexpr uint64_t MUL64_13 = UINT64_C(0xE3E4E8AA829AB9B5);
-
+#define MUL64_1   UINT64_C(0x993DDEFFB1462949)
+#define MUL64_2   UINT64_C(0xE9C91DC159AB0D2D)
+#define MUL64_3   UINT64_C(0x83D6A14F1B0CED75)
+#define MUL64_4   UINT64_C(0xA14F1B0CED5A841D)
+#define MUL64_5   UINT64_C(0xC0E51314A614F4E1)
+#define MUL64_6   UINT64_C(0xDA9CC2600AE45A25)
+#define MUL64_7   UINT64_C(0x826797AA04A65735)
+#define MUL64_8   UINT64_C(0x2375BE54C41A08ED)
+#define MUL64_9   UINT64_C(0xD39104E950564B39)
+#define MUL64_10  UINT64_C(0x3091697D5E685621)
+#define MUL64_11  UINT64_C(0x20EB84EE04A3C7E1)
+#define MUL64_12  UINT64_C(0xF501F1D0944B2385)
+#define MUL64_13  UINT64_C(0xE3E4E8AA829AB9B5)
 
 
 /**
@@ -49,9 +45,9 @@ constexpr uint64_t MUL64_13 = UINT64_C(0xE3E4E8AA829AB9B5);
  * @param hashBits
  * @return
  */
-static uint32_t finalize64(const uint64_t hash, const int hashBits) {
+static inline uint32_t finalize64(const uint64_t hash, const int hashBits) {
   assert(hashBits>=0 && hashBits <= 32); // just a reasonable upper limit
-  return static_cast<uint32_t>(hash >> (64 - hashBits));
+  return (uint32_t)(hash >> (64 - hashBits));
 }
 
 /**
@@ -60,87 +56,73 @@ static uint32_t finalize64(const uint64_t hash, const int hashBits) {
  * @param hashBits
  * @return
  */
-static uint8_t checksum8(const uint64_t hash, const int hashBits) {
-  constexpr int checksumBits = 8;
-  return static_cast<uint8_t>(hash >> (64 - hashBits - checksumBits)) & ((1 << checksumBits) - 1);
+static inline uint8_t checksum8(const uint64_t hash, const int hashBits) {
+  enum { checksumBits = 8 };
+  return (uint8_t)(hash >> (64 - hashBits - checksumBits)) & ((1 << checksumBits) - 1);
 }
 
-static uint16_t checksum16(const uint64_t hash, const int hashBits) {
-  constexpr int checksumBits = 16;
-  return static_cast<uint16_t>(hash >> (64 - hashBits - checksumBits)) & ((1 << checksumBits) - 1);
+static inline uint16_t checksum16(const uint64_t hash, const int hashBits) {
+  enum { checksumBits = 16 };
+  return (uint16_t)(hash >> (64 - hashBits - checksumBits)) & ((1 << checksumBits) - 1);
 }
 
 //
 // value hashing
 //
 // - Hash 1-13 64-bit (usually small) integers
+// - hashN() hashes N values
 //
 
-
-static uint64_t hash(const uint64_t x0) {
+static inline uint64_t hash1(const uint64_t x0) {
   return (x0 + 1) * PHI64;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1) {
+static inline uint64_t hash2(const uint64_t x0, const uint64_t x1) {
   return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2) {
+static inline uint64_t hash3(const uint64_t x0, const uint64_t x1, const uint64_t x2) {
   return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3) {
+static inline uint64_t hash4(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3) {
   return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4) {
+static inline uint64_t hash5(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4) {
   return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5) {
+static inline uint64_t hash6(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5) {
   return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6;
+static inline uint64_t hash7(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7;
+static inline uint64_t hash8(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7, const uint64_t x8) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8;
+static inline uint64_t hash9(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7, const uint64_t x8) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7, const uint64_t x8, const uint64_t x9) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9;
+static inline uint64_t hash10(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7, const uint64_t x8, const uint64_t x9) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10;
+static inline uint64_t hash11(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10, const uint64_t x11) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10 + (x11 + 1) * MUL64_11;
+static inline uint64_t hash12(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10, const uint64_t x11) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10 + (x11 + 1) * MUL64_11;
 }
 
-static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6,
-     const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10, const uint64_t x11, const uint64_t x12) {
-  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 +
-         (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10 + (x11 + 1) * MUL64_11 +
-         (x12 + 1) * MUL64_12;
+static inline uint64_t hash13(const uint64_t x0, const uint64_t x1, const uint64_t x2, const uint64_t x3, const uint64_t x4, const uint64_t x5, const uint64_t x6, const uint64_t x7, const uint64_t x8, const uint64_t x9, const uint64_t x10, const uint64_t x11, const uint64_t x12) {
+  return (x0 + 1) * PHI64 + (x1 + 1) * MUL64_1 + (x2 + 1) * MUL64_2 + (x3 + 1) * MUL64_3 + (x4 + 1) * MUL64_4 + (x5 + 1) * MUL64_5 + (x6 + 1) * MUL64_6 + (x7 + 1) * MUL64_7 + (x8 + 1) * MUL64_8 + (x9 + 1) * MUL64_9 + (x10 + 1) * MUL64_10 + (x11 + 1) * MUL64_11 + (x12 + 1) * MUL64_12;
 }
 
 /**
@@ -149,6 +131,6 @@ static uint64_t hash(const uint64_t x0, const uint64_t x1, const uint64_t x2, co
  * @param x
  * @return
  */
-static uint64_t combine64(const uint64_t seed, const uint64_t x) {
-  return hash(seed + x);
+static inline uint64_t combine64(const uint64_t seed, const uint64_t x) {
+  return hash1(seed + x);
 }

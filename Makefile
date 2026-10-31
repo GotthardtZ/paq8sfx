@@ -14,12 +14,12 @@
 #   make test-free       run the roundtrip test against the libc-free stub
 #   make upx             compress the stub with upx (do this before assembling)
 #   make clean           remove everything this Makefile created
-#   make CXX=clang++     use another compiler
-#   make CXX=x86_64-w64-mingw32-g++   cross-compile the Windows .exe files
+#   make CC=clang        use another compiler
+#   make CC=x86_64-w64-mingw32-gcc   cross-compile the Windows .exe files
 #   make V=1             show the full command lines
 #
 # stub-free is the libc-free stub: the same self-extractor, linked without the
-# C/C++ runtime libraries. On Linux it calls the kernel directly, on Windows it
+# C runtime library. On Linux it calls the kernel directly, on Windows it
 # imports kernel32.dll only. It is smaller and needs nothing at run time.
 # See src/platform/.
 #
@@ -37,13 +37,16 @@
 # src/SystemDefines.hpp. Editing that file (or any other header) rebuilds
 # whatever depends on it.
 
-CXX     ?= g++
+# make has its own default for CC (cc); gcc is the default here.
+ifeq ($(origin CC),default)
+  CC := gcc
+endif
 SRCDIR  := src
 OUTDIR  := build
 OBJDIR  := $(OUTDIR)/obj
 
-# Extra flags from the command line, e.g. make EXTRA_CXXFLAGS=-g STRIP=
-EXTRA_CXXFLAGS ?=
+# Extra flags from the command line, e.g. make EXTRA_CFLAGS=-g STRIP=
+EXTRA_CFLAGS ?=
 EXTRA_LDFLAGS  ?=
 STRIP          ?= -s
 
@@ -54,14 +57,14 @@ STRIP          ?= -s
 
 # ---------------------------------------------------------------- compiler --
 
-CXX_VERSION := $(shell $(CXX) --version 2>/dev/null)
-ifeq ($(CXX_VERSION),)
-  $(error Compiler '$(CXX)' not found. Install g++ or clang++, or set CXX=...)
+CC_VERSION := $(shell $(CC) --version 2>/dev/null)
+ifeq ($(CC_VERSION),)
+  $(error Compiler '$(CC)' not found. Install gcc or clang, or set CC=...)
 endif
 
 # Target OS, from the compiler: windows (MinGW-w64) or linux.
-CXX_MACHINE := $(shell $(CXX) -dumpmachine 2>/dev/null)
-ifneq ($(findstring mingw,$(CXX_MACHINE))$(findstring windows,$(CXX_MACHINE)),)
+CC_MACHINE := $(shell $(CC) -dumpmachine 2>/dev/null)
+ifneq ($(findstring mingw,$(CC_MACHINE))$(findstring windows,$(CC_MACHINE)),)
   TARGET := windows
   EXE    := .exe
 else
@@ -74,7 +77,7 @@ endif
 # makefile, which on Windows needs extra care with GCC 14 and older (make -j0,
 # 'Error 1 (ignored)'). paq8sfx is small, so that's not a problem.
 # clang accepts only -flto (or -flto=thin/full).
-ifneq ($(findstring clang,$(CXX_VERSION)),)
+ifneq ($(findstring clang,$(CC_VERSION)),)
   LTO   := -flto
   NOPIE :=
 else
@@ -82,10 +85,6 @@ else
   # NOPIE: gcc may build position independent executables by default; the
   # libc-free stub is not one.
   NOPIE := -no-pie
-  ifeq ($(TARGET),windows)
-    # gcc bug: LTO does not work properly with -Os without this (MinGW-w64)
-    LTO += -fno-declone-ctor-dtor
-  endif
 endif
 
 # ------------------------------------------------------------------- flags --
@@ -97,8 +96,8 @@ SAFEFP := -fno-fast-math -ffp-contract=off
 # -march=nocona is the x64 baseline. The SSE4.1/AVX2 code paths enable their
 # instruction sets per function, so do NOT raise this to -march=native: that
 # would let the compiler use newer instructions everywhere.
-COMMON := -DNDEBUG $(SAFEFP) -m64 -march=nocona -mtune=generic -std=gnu++17 \
-          -fno-exceptions -fno-rtti $(LTO) $(EXTRA_CXXFLAGS)
+COMMON := -DNDEBUG $(SAFEFP) -m64 -march=nocona -mtune=generic -std=gnu11 \
+          $(LTO) $(EXTRA_CFLAGS)
 
 # The stubs: every SIMD code path, selected at run time (any x64 CPU), unless
 # AVX2_ONLY=1: AVX2 code path only (smaller, needs an AVX2 CPU).
@@ -108,8 +107,8 @@ SFX_SIMD  := $(if $(filter 1,$(AVX2_ONLY)),-DAVX2_ONLY)
 SFX_EXTRACT_ONLY ?= 0
 SFX_MODE  := $(if $(filter 1,$(SFX_EXTRACT_ONLY)),-DSFX_EXTRACT_ONLY)
 
-FULL_CXXFLAGS := -DFULL -O3 $(COMMON)
-SFX_CXXFLAGS  := -DSFX  -Os $(SFX_SIMD) $(SFX_MODE) $(COMMON)
+FULL_CFLAGS := -DFULL -O3 $(COMMON)
+SFX_CFLAGS  := -DSFX  -Os $(SFX_SIMD) $(SFX_MODE) $(COMMON)
 
 LDFLAGS := $(STRIP) -Wl,--gc-sections $(EXTRA_LDFLAGS)
 
@@ -124,19 +123,18 @@ endif
 
 # --- the libc-free stub -----------------------------------------------------
 # Built like the normal stub, but without the features that need support code
-# from the C/C++ runtime: stack protector, thread-safe initialization of local
-# statics, _FORTIFY_SOURCE checks, unwind tables.
-FREE_EXTRA := -DSFX_FREESTANDING -fno-stack-protector -fno-threadsafe-statics \
+# from the C runtime: stack protector, _FORTIFY_SOURCE checks, unwind tables.
+FREE_EXTRA := -DSFX_FREESTANDING -fno-stack-protector \
               -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 \
               -fno-asynchronous-unwind-tables -fno-unwind-tables
 # libgcc holds helper routines the compiler may call (Linux build only).
-LIBGCC := $(shell $(CXX) -print-libgcc-file-name 2>/dev/null)
+LIBGCC := $(shell $(CC) -print-libgcc-file-name 2>/dev/null)
 
 ifeq ($(TARGET),windows)
   # -D_CRTIMP= makes the C library headers declare ordinary functions (not
   # DLL imports), so that the functions of src/platform/ are used.
   # Linked with kernel32.dll only; the program starts at sfx_entry
-  # (Platform_Windows.cpp).
+  # (Platform_Windows.c).
   FREE_EXTRA   += -D_CRTIMP=
   # No relocation table (no ASLR for the stub): 512 bytes less before UPX.
   FREE_LDFLAGS := -nostdlib -static -Wl,--gc-sections -Wl,-e,sfx_entry \
@@ -146,29 +144,29 @@ ifeq ($(TARGET),windows)
   # a helper (___chkstk_ms) from libgcc; without libgcc it fails to link. That
   # is wanted: the Visual Studio build could not link such a function either.
   FREE_LIBS    := -lkernel32
-  PLATFORM_SRC := Platform_Windows.cpp
+  PLATFORM_SRC := Platform_Windows.c
 else
-  # A fixed-address executable; it starts at _start (Platform_Linux.cpp).
+  # A fixed-address executable; it starts at _start (Platform_Linux.c).
   FREE_EXTRA   += -fno-pie -fno-pic
   FREE_LDFLAGS := -nostdlib -static $(NOPIE) -Wl,--gc-sections -Wl,-e,_start \
                   -Wl,--build-id=none -s $(EXTRA_LDFLAGS)
   FREE_LIBS    := $(LIBGCC)
-  PLATFORM_SRC := Platform_Linux.cpp
+  PLATFORM_SRC := Platform_Linux.c
 endif
 
-FREE_CXXFLAGS := -DSFX -Os $(SFX_SIMD) $(SFX_MODE) $(COMMON) $(FREE_EXTRA)
+FREE_CFLAGS := -DSFX -Os $(SFX_SIMD) $(SFX_MODE) $(COMMON) $(FREE_EXTRA)
 
 # ----------------------------------------------------------------- sources --
 # The src/platform/ files belong only to the freestanding build and are kept
 # out of the normal globs on purpose (they define malloc, _start, ... which
 # would clash with the hosted runtime).
-SRCS := $(sort $(wildcard $(SRCDIR)/*.cpp $(SRCDIR)/file/*.cpp $(SRCDIR)/model/*.cpp))
-PLAT_SRCS := $(SRCDIR)/platform/CRuntime.cpp $(SRCDIR)/platform/$(PLATFORM_SRC)
+SRCS := $(sort $(wildcard $(SRCDIR)/*.c $(SRCDIR)/file/*.c $(SRCDIR)/filter/*.c $(SRCDIR)/model/*.c))
+PLAT_SRCS := $(SRCDIR)/platform/CRuntime.c $(SRCDIR)/platform/$(PLATFORM_SRC)
 
-FULL_OBJS := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/full/%.o)
-SFX_OBJS  := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/sfx/%.o)
-FREE_OBJS := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/free/%.o) \
-             $(PLAT_SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/free/%.o)
+FULL_OBJS := $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/full/%.o)
+SFX_OBJS  := $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/sfx/%.o)
+FREE_OBJS := $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/free/%.o) \
+             $(PLAT_SRCS:$(SRCDIR)/%.c=$(OBJDIR)/free/%.o)
 
 PAQ8SFX  := $(OUTDIR)/paq8sfx$(EXE)
 STUB     := $(OUTDIR)/stub$(EXE)
@@ -196,25 +194,25 @@ stub-free: $(STUBFREE)
 # set of compiler flags as well.
 $(PAQ8SFX): $(FULL_OBJS) $(OBJDIR)/full/.ldflags
 	@echo "  LINK  $@"
-	$(Q)$(CXX) $(FULL_CXXFLAGS) $(FULL_OBJS) $(FULL_LDFLAGS) -o $@
+	$(Q)$(CC) $(FULL_CFLAGS) $(FULL_OBJS) $(FULL_LDFLAGS) -o $@
 
 $(STUB): $(SFX_OBJS)
 	@echo "  LINK  $@"
-	$(Q)$(CXX) $(SFX_CXXFLAGS) $(SFX_OBJS) $(LDFLAGS) -o $@
+	$(Q)$(CC) $(SFX_CFLAGS) $(SFX_OBJS) $(LDFLAGS) -o $@
 
 $(STUBFREE): $(FREE_OBJS)
 	@echo "  LINK  $@ (libc-free)"
-	$(Q)$(CXX) $(FREE_CXXFLAGS) $(FREE_OBJS) $(FREE_LDFLAGS) $(FREE_LIBS) -o $@
+	$(Q)$(CC) $(FREE_CFLAGS) $(FREE_OBJS) $(FREE_LDFLAGS) $(FREE_LIBS) -o $@
 
-$(OBJDIR)/full/%.o: $(SRCDIR)/%.cpp $(OBJDIR)/full/.flags
-	@echo "  CXX   $< (FULL)"
+$(OBJDIR)/full/%.o: $(SRCDIR)/%.c $(OBJDIR)/full/.flags
+	@echo "  CC    $< (FULL)"
 	@mkdir -p $(@D)
-	$(Q)$(CXX) $(FULL_CXXFLAGS) -MMD -MP -c $< -o $@
+	$(Q)$(CC) $(FULL_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJDIR)/sfx/%.o: $(SRCDIR)/%.cpp $(OBJDIR)/sfx/.flags
-	@echo "  CXX   $< (SFX)"
+$(OBJDIR)/sfx/%.o: $(SRCDIR)/%.c $(OBJDIR)/sfx/.flags
+	@echo "  CC    $< (SFX)"
 	@mkdir -p $(@D)
-	$(Q)$(CXX) $(SFX_CXXFLAGS) -MMD -MP -c $< -o $@
+	$(Q)$(CC) $(SFX_CFLAGS) -MMD -MP -c $< -o $@
 
 # The files of src/platform/ are compiled without link-time optimization and
 # without builtins: otherwise the compiler may replace the body of memcpy by a
@@ -227,25 +225,25 @@ PLAT_FILEFLAGS := -fno-lto -fno-builtin -ffunction-sections -fdata-sections
 $(OBJDIR)/free/platform/CRuntime.o:   FREE_FILEFLAGS := $(CRT_FILEFLAGS)
 $(OBJDIR)/free/platform/Platform_%.o: FREE_FILEFLAGS := $(PLAT_FILEFLAGS)
 
-$(OBJDIR)/free/%.o: $(SRCDIR)/%.cpp $(OBJDIR)/free/.flags
-	@echo "  CXX   $< (FREE)"
+$(OBJDIR)/free/%.o: $(SRCDIR)/%.c $(OBJDIR)/free/.flags
+	@echo "  CC    $< (FREE)"
 	@mkdir -p $(@D)
-	$(Q)$(CXX) $(FREE_CXXFLAGS) $(FREE_FILEFLAGS) -MMD -MP -c $< -o $@
+	$(Q)$(CC) $(FREE_CFLAGS) $(FREE_FILEFLAGS) -MMD -MP -c $< -o $@
 
-# Remember the compiler and flags of the last build; a change (another CXX,
-# EXTRA_CXXFLAGS, ...) rebuilds that variant instead of mixing object files.
+# Remember the compiler and flags of the last build; a change (another CC,
+# EXTRA_CFLAGS, ...) rebuilds that variant instead of mixing object files.
 # The stamp is only rewritten when its content changes. Skipped for 'clean'.
 define stamp
 $(shell mkdir -p $(dir $(1)); \
-  printf '%s\n' '$(subst ','\'',$(CXX_VERSION) $(2))' | cmp -s - $(1) || \
-  printf '%s\n' '$(subst ','\'',$(CXX_VERSION) $(2))' > $(1))
+  printf '%s\n' '$(subst ','\'',$(CC_VERSION) $(2))' | cmp -s - $(1) || \
+  printf '%s\n' '$(subst ','\'',$(CC_VERSION) $(2))' > $(1))
 endef
 
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
-  $(call stamp,$(OBJDIR)/full/.flags,$(FULL_CXXFLAGS))
+  $(call stamp,$(OBJDIR)/full/.flags,$(FULL_CFLAGS))
   $(call stamp,$(OBJDIR)/full/.ldflags,$(FULL_LDFLAGS))
-  $(call stamp,$(OBJDIR)/sfx/.flags,$(SFX_CXXFLAGS))
-  $(call stamp,$(OBJDIR)/free/.flags,$(FREE_CXXFLAGS) $(CRT_FILEFLAGS) $(PLAT_FILEFLAGS))
+  $(call stamp,$(OBJDIR)/sfx/.flags,$(SFX_CFLAGS))
+  $(call stamp,$(OBJDIR)/free/.flags,$(FREE_CFLAGS) $(CRT_FILEFLAGS) $(PLAT_FILEFLAGS))
 endif
 
 # The roundtrip test copies both programs from build/ itself.

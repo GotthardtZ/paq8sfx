@@ -1,10 +1,10 @@
-﻿#include <cstdint>
-#include "BlockType.hpp"
+﻿#include "BlockType.h"
 
 bool hasInfo(BlockType ft) {
-  return ft == BlockType::EXE;
+  return ft == BLOCKTYPE_EXE;
 }
 
 bool hasTransform(BlockType ft, int info) {
-  return ft == BlockType::EXE;
+  (void)info;
+  return ft == BLOCKTYPE_EXE;
 }

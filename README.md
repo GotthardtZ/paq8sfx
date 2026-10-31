@@ -1,4 +1,4 @@
-# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
+﻿# PAQ8SFX – A self-extracting archive creator with the power of PAQ8PX
 
 ## About
 
@@ -165,12 +165,12 @@ It is not necessarily the highest level that gives the best result for a given e
 | `-7` | 585 MB |
 | `-8` | 1'031 MB |
 | `-9` | 1'923 MB |
-| `-10` | 3'707 MB |
-| `-11` | 7'275 MB |
-| `-12` | 14'410 MB |
+| `-10` | 3'450 MB |
+| `-11` | 6'505 MB |
+| `-12` | 12'614 MB |
 
 > [!WARNING]
-> Decompression needs the same amount of memory as compression. A package compressed with `-12` needs over 14 GB of free memory on the machine where it is unpacked.
+> Decompression needs the same amount of memory as compression. A package compressed with `-12` needs over 12 GB of free memory on the machine where it is unpacked.
 
 ## Benchmark results
 
@@ -180,7 +180,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 > The benchmark figures have not been updated for the current source yet: the paq8sfx rows include a 40'448-byte stub (see [Stub size](#stub-size) for the current ones), and the compressed sizes may differ slightly.
 
 - **UPX**: `upx --best --ultra-brute`, UPX 5.2.0. The result is a self-extracting executable; its decompression stub is already included in the compressed size.
-- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the UPX-compressed generic glibc-free static Windows x64 stub (25'600 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
+- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the UPX-compressed generic glibc-free static Windows x64 stub (25'088 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
 - **paq8px**: paq8px_v216, level `-12`, shown for reference. Its result is not self-extracting: it needs the 1.3 MB paq8px executable to decompress, which is not counted here.
 
 **paq8px_v216.exe, [paq8px v216](https://github.com/hxim/paq8px/releases/tag/v216)** - 1'293'312 bytes
@@ -188,7 +188,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 510'976 | included | 510'976 | 39.5% | 7 sec |
-| paq8sfx -12 | 323'052 | 25'600 | **348'652** | 27.0% | 120 sec |
+| paq8sfx -12 | 323'052 | 25'088 | **348'140** | 26.9% | 120 sec |
 | paq8px -12 | 314'761 | - | 314'761 | 24.3% | 270 sec |
 
 **bsc.exe, [bsc 3.3.12](https://github.com/IlyaGrebnov/libbsc/releases/tag/v3.3.12)** - 6'114'304 bytes
@@ -196,7 +196,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 957'440 | included | 957'440 | 15.7% | 87 sec |
-| paq8sfx -12 | 667'328 | 25'600 | **692'928** | 11.3% | 477 sec |
+| paq8sfx -12 | 667'328 | 25'088 | **692'416** | 11.3% | 477 sec |
 | paq8px -12 | 646'119 | - | 646'119 | 10.6% | 1'008 sec |
 
 **mcm.exe, [mcm 0.83](https://encode.su/threads/2127-MCM-LZP?p=43220&viewfull=1#post43220), x64** - 2'444'886 bytes
@@ -204,7 +204,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 1'478'742 | included | 1'478'742 | 60.5% | 8 sec |
-| paq8sfx -12 | 268'760 | 25'600 | **294'360** | 12.0% | 193 sec |
+| paq8sfx -12 | 268'760 | 25'088 | **293'848** | 12.0% | 193 sec |
 | paq8px -12 | 257'256 | - | 257'256 | 10.5% | 366 sec |
 
 **zpaq64.exe [zpaq 7.15](https://github.com/zpaq/zpaq/releases/tag/7.15), 64-bit** - 1'125'376 bytes
@@ -212,7 +212,7 @@ The tests are about compressing the executables of data compressors (x86/x64). A
 | Compressor | Compressed size | Stub | Total | Ratio | Time |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | UPX | 326'144 | included | 326'144 | 29.0% | 8 sec |
-| paq8sfx -12 | 201'466 | 25'600 | **227'066** | 20.2% | 103 sec |
+| paq8sfx -12 | 201'466 | 25'088 | **226'554** | 20.1% | 103 sec |
 | paq8px -12 | 197'083 | - | 197'083 | 17.5% | 215 sec |
 
 Even with its stub counted, `paq8sfx` is significantly better than UPX in every test and close behind the full-fledged paq8px compressor, in about half of its time.
@@ -223,17 +223,17 @@ Size of the stub in bytes after `upx --best --ultra-brute` (UPX 5.2.0), which is
 
 | Toolchain | Stub | Default | `AVX2_ONLY` | Extract-only | Extract-only + `AVX2_ONLY` | Needs at run time |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| Windows, MinGW-w64 (GCC 15.2.0) | libc-free | *25'600* | 24'576 | 25'088 | **23'552** | `kernel32.dll` only |
-| | normal | 41'472 | 40'448 | 40'960 | 39'936 | GCC runtime DLLs |
-| Windows, VS 2022 (MSVC 19.44.35216) | libc-free | 30'720 | 29'696 | 29'696 | 28'672 | `kernel32.dll` only |
-| | normal | 36'352 | 34'816 | 35'840 | 34'304 | VC++ Redistributable |
-| | normal, x86 | 32'768 | n/a | 32'768 | n/a | VC++ Redistributable |
-| Linux, gcc 13.3.0 | libc-free | *25'992* | 24'984 | 25'396 | **24'408** | nothing (static) |
-| | normal | 30'948 | 29'624 | 29'332 | 29'104 | system C/C++ libraries |
-| Linux, clang 18.1.3 | libc-free | 30'744 | 29'164 | 30'320 | 28'724 | nothing (static) |
-| | normal | 35'060 | 33'952 | 33'304 | 33'736 | system C/C++ libraries |
+| Windows, MinGW-w64 (GCC 15.2.0) | libc-free | *25'088* | 23'552 | 24'064 | **23'040** | `kernel32.dll` only |
+| | normal | 30'720 | 29'696 | 30'208 | 29'184 | GCC runtime DLLs |
+| Windows, VS 2022 (MSVC 19.44.35216) | libc-free | 31'232 | 29'696 | 32'768 | 29'184 | `kernel32.dll` only |
+| | normal | 33'280 | 31'744 | 30'208 | 31'232 | VC++ Redistributable |
+| | normal, x86 | 29'696 | n/a | 29'696 | n/a | VC++ Redistributable |
+| Linux, gcc 13.3.0 | libc-free | *24'828* | 23'908 | 24'300 | **23'508** | nothing (static) |
+| | normal | 28'260 | 27'168 | 27'728 | 26'636 | system C library |
+| Linux, clang 18.1.3 | libc-free | 27'992 | 27'216 | 27'556 | 26'732 | nothing (static) |
+| | normal | 31'076 | 30'120 | 30'724 | 29'780 | system C library |
 
-- The rows: *libc-free* is the stub without any C/C++ runtime library (see [The libc-free stub](#the-libc-free-stub)), *normal* is the ordinary build. All are x64 unless noted.
+- The rows: *libc-free* is the stub without the C runtime library (see [The libc-free stub](#the-libc-free-stub)), *normal* is the ordinary build. All are x64 unless noted.
 - The columns: *Default* is the full stub as every build method produces it. `AVX2_ONLY` is a [build setting](#build-settings); *Extract-only* is the [extract-only stub](#the-extract-only-stub).
 - `n/a` means that this variant does not exist.
 
@@ -241,7 +241,7 @@ The normal stubs are dynamically linked; `paq8sfx.exe`, the compressor, is stati
 
 ## How to compile
 
-A C++17 compiler for x64 is required. The same source is compiled twice: once with `-DFULL` (gives `paq8sfx`) and once with `-DSFX` (gives `stub`). The build scripts and the Makefile do both. The [libc-free stub](#the-libc-free-stub) is a third build of the stub (`-DSFX -DSFX_FREESTANDING`).
+A C11 compiler for x64 is required: gcc, clang, MinGW-w64 or Visual Studio 2019 (16.8) and later. The same source is compiled twice: once with `-DFULL` (gives `paq8sfx`) and once with `-DSFX` (gives `stub`). The build scripts and the Makefile do both. The [libc-free stub](#the-libc-free-stub) is a third build of the stub (`-DSFX -DSFX_FREESTANDING`).
 
 ### Windows, MinGW-w64
 
@@ -284,20 +284,20 @@ make test            # build, then run the roundtrip test
 | `make test-free` | Runs the roundtrip test with the libc-free stub. It copies `stub-free` over `build/stub`. |
 | `make upx` | Compresses the stub with `upx --best --ultra-brute`. |
 | `make clean` | Removes the object files (`build/obj`) and the executables. |
-| `make CXX=clang++` | Builds with clang instead of gcc. |
-| `make CXX=x86_64-w64-mingw32-g++` | Cross-compiles the Windows `.exe` files on Linux. |
+| `make CC=clang` | Builds with clang instead of gcc. |
+| `make CC=x86_64-w64-mingw32-gcc` | Cross-compiles the Windows `.exe` files on Linux. |
 | `make OUTDIR=dir` | Uses another output folder instead of `build` (e.g. for a second compiler). |
 | `make AVX2_ONLY=1` | Builds the stubs with the AVX2 code path only: smaller, but they need an AVX2 CPU (see [Build settings](#build-settings)). |
 | `make SFX_EXTRACT_ONLY=1` | Builds [extract-only](#the-extract-only-stub) stubs. Combine with `OUTDIR=...` to keep the full stubs, e.g. `make stub-free SFX_EXTRACT_ONLY=1 OUTDIR=build-x`. |
 | `make V=1` | Shows the full compiler command lines. |
 
-Changing the compiler, a setting such as `AVX2_ONLY`, or `src/SystemDefines.hpp` is picked up automatically; there is no need to run `make clean` first.
+Changing the compiler, a setting such as `AVX2_ONLY`, or `src/SystemDefines.h` is picked up automatically; there is no need to run `make clean` first.
 
 The target (Linux or Windows) is taken from the compiler, so the same rules cross-compile with MinGW-w64; this was tested with Ubuntu's MinGW-w64 GCC 13 and the results run under Wine. It also runs natively on Windows, see below. For Windows the Makefile links `paq8sfx.exe` statically (`-static`), as `build-mingw-w64.cmd` does.
 
 ### Windows, MinGW-w64, with make
 
-The Makefile needs MinGW-w64 (it brings `g++` and `mingw32-make`) and a few Unix tools: `sh`, `mkdir`, `rm`, `printf` and `cmp`. Git for Windows has them all, in its `usr\bin` folder. It is installed either on its own (it is the package that provides Git Bash) or by Visual Studio, when the "Git" individual component is selected in the Visual Studio Installer.
+The Makefile needs MinGW-w64 (it brings `gcc` and `mingw32-make`) and a few Unix tools: `sh`, `mkdir`, `rm`, `printf` and `cmp`. Git for Windows has them all, in its `usr\bin` folder. It is installed either on its own (it is the package that provides Git Bash) or by Visual Studio, when the "Git" individual component is selected in the Visual Studio Installer.
 
 The simplest way is `build\build-mingw-w64-make.cmd`. It sets the path, checks that the tools are there and runs `mingw32-make` with one job per CPU thread. Like `build-mingw-w64.cmd`, it creates `paq8sfx.exe`, `stub.exe` and `stub-free.exe` in the `build` folder, but it recompiles only what has changed. Edit `mingw_dir` and `git_dir` at the top of the script if MinGW-w64 or Git is installed elsewhere. If the build fails, the compiler messages are in `build\_error.txt`.
 
@@ -329,7 +329,7 @@ mingw32-make -j$(nproc)
 All targets and settings of the table above work the same way; write `mingw32-make` instead of `make`. This was tested with MinGW-w64 GCC 15.2.0 (WinLibs) and the Git for Windows installed by Visual Studio 2022.
 
 - Use `mingw32-make`, not the `make` of MSYS or MSYS2.
-- If the build stops with `Compiler 'g++' not found` although `g++` is on the path, `mingw32-make` did not find `sh.exe`: check the Git `usr\bin` part of the path.
+- If the build stops with `Compiler 'gcc' not found` although `gcc` is on the path, `mingw32-make` did not find `sh.exe`: check the Git `usr\bin` part of the path.
 
 ### Making the stub smaller
 
@@ -343,16 +343,16 @@ With the Makefile, `make upx` compresses the normal stub (`build/stub`).
 
 ### The libc-free stub
 
-The libc-free stub is the same self-extractor - same modes, same package and archive format - built without the C and C++ runtime libraries. It is smaller, and a package made from it has no run-time dependencies. It exists for x64 Linux and x64 Windows.
+The libc-free stub is the same self-extractor - same modes, same package and archive format - built without the C runtime library. It is smaller, and a package made from it has no run-time dependencies. It exists for x64 Linux and x64 Windows.
 
 The rest of the program still calls the usual C library functions (`fopen`, `malloc`, `memcpy`, ...). In this stub they come from `src/platform/`:
 
 | File | Content |
 | --- | --- |
-| `Platform.hpp` | The eight functions the stub needs from the operating system: open, close, read, write and seek a file, allocate and free memory, exit. |
-| `CRuntime.cpp` | The C library functions the stub calls (memory, strings, files, `new`/`delete`). Written once for both operating systems, using only the eight functions above. |
-| `Platform_Linux.cpp` | The eight functions as Linux system calls, the entry point of the program, and the C functions that only the Linux code calls (`stat`, `mkdir`, `chmod`, `execv`). |
-| `Platform_Windows.cpp` | The eight functions as `kernel32.dll` calls, the entry point of the program (it also splits the command line into arguments), and the C functions that only the Windows code calls (`_wfopen`, `_wstat64`, `system`). Built with MinGW-w64 and with Visual Studio. |
+| `Platform.h` | The eight functions the stub needs from the operating system: open, close, read, write and seek a file, allocate and free memory, exit. |
+| `CRuntime.c` | The C library functions the stub calls (memory, strings, files). Written once for both operating systems, using only the eight functions above. |
+| `Platform_Linux.c` | The eight functions as Linux system calls, the entry point of the program, and the C functions that only the Linux code calls (`stat`, `mkdir`, `chmod`, `execv`). |
+| `Platform_Windows.c` | The eight functions as `kernel32.dll` calls, the entry point of the program (it also splits the command line into arguments), and the C functions that only the Windows code calls (`_wfopen`, `_wstat64`, `system`). Built with MinGW-w64 and with Visual Studio. |
 
 How it differs from the normal stub:
 
@@ -363,7 +363,7 @@ How it differs from the normal stub:
 Build notes:
 
 - The files in `src/platform/` are compiled only into the libc-free stub; in every other build they are empty.
-- `CRuntime.cpp` and the `Platform_*.cpp` files are compiled without link-time optimization (the compiler could otherwise replace the body of `memcpy` by a call to `memcpy`); the rest of the stub uses it.
+- `CRuntime.c` and the `Platform_*.c` files are compiled without link-time optimization (the compiler could otherwise replace the body of `memcpy` by a call to `memcpy`); the rest of the stub uses it.
 - No function of the stub may use more than 4 KB of stack. On Windows a larger stack frame needs a helper function (`__chkstk`) from the C runtime. The MinGW-w64 build does not link libgcc, so such a function fails to link (`undefined reference to ___chkstk_ms`) instead of slipping through. Large buffers are therefore `static` or allocated.
 - Visual Studio: the `Release-SFX-Free` configuration contains all required settings, with a comment explaining each. Inline function expansion is `/Ob1`, which gave the smallest stub after UPX.
 
@@ -375,7 +375,7 @@ Three settings affect the stub. None of them changes the archive or the package 
 
 | | Not defined (the default) | Defined |
 | --- | --- | --- |
-| Stub | SSE2, SSE4.1, AVX2 and plain C++ code paths are all compiled in, and the best one is selected at run time. Runs on any x64 CPU. | Only the AVX2 code path is compiled in: about 1.0-1.6 KB smaller after UPX, but it **requires a CPU with AVX2**. |
+| Stub | SSE2, SSE4.1, AVX2 and plain C code paths are all compiled in, and the best one is selected at run time. Runs on any x64 CPU. | Only the AVX2 code path is compiled in: about 0.8-1.6 KB smaller after UPX, but it **requires a CPU with AVX2**. |
 
 `paq8sfx` (the compressor) is always built with every code path and selects one at run time, so it runs on any x64 CPU. All code paths give bit-identical results, so an archive made on a CPU without AVX2 decompresses with an `AVX2_ONLY` stub, and vice versa.
 
@@ -404,7 +404,7 @@ Builds the [extract-only stub](#the-extract-only-stub) instead of the full one. 
 | `build-linux-with-*.sh` | Set `SFX_MODE="-DSFX_EXTRACT_ONLY"` near the top of the script. |
 | Visual Studio | Add `SFX_EXTRACT_ONLY` to *C/C++ → Preprocessor → Preprocessor Definitions* of the `Release-SFX` or `Release-SFX-Free` configuration. |
 
-**`SFX_SILENT`** - set in `src/SystemDefines.hpp`.
+**`SFX_SILENT`** - set in `src/SystemDefines.h`.
 
 | | Defined (the default) | Commented out |
 | --- | --- | --- |
@@ -424,14 +424,14 @@ Archives are created and read by the same model code, so always use a `paq8sfx` 
 `paq8sfx` (the compressor):
 
 - Windows: `paq8sfx.exe` is statically linked by every build method - MinGW-w64 (`build-mingw-w64.cmd` and the Makefile, with `-static`) and Visual Studio (`Release-FULL`, x64 and x86, with the static runtime library, `/MT`). It needs neither the GCC runtime DLLs nor the VC++ Redistributable.
-- Linux: `paq8sfx` is dynamically linked against the system C and C++ runtime libraries.
+- Linux: `paq8sfx` is dynamically linked against the system C library.
 
 The stub, and therefore every package assembled from it:
 
 - The libc-free stub needs nothing: on Linux it is a static executable that calls the kernel directly, on Windows it imports `kernel32.dll` only. A package assembled from it runs on any x64 Linux or Windows machine without extra files.
-- The normal stub of the MinGW-w64 build links the GCC runtime dynamically. `libgcc_s_seh-1.dll`, `libstdc++-6.dll` and `libwinpthread-1.dll` must be reachable (on the `PATH` or next to the executable) on the machine where the package runs.
+- The normal stub of the MinGW-w64 build needs no GCC runtime DLLs (gcc links its small runtime library, libgcc, statically into a C program). It imports `kernel32.dll` and the C runtime DLL of Windows that the MinGW-w64 build uses (`msvcrt.dll`, or the UCRT for UCRT-based builds such as WinLibs), both part of Windows.
 - The normal stub of the MSVC 14 (Visual Studio 2022) build (`Release-SFX`, x64 and x86) links the VC++ runtime dynamically (`/MD`). The [Microsoft Visual C++ 2015–2022 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version) or a compatible higher version must be installed on the machine where the package runs.
-- The normal stub of the Linux builds is dynamically linked against the system C and C++ runtime libraries.
+- The normal stub of the Linux builds is dynamically linked against the system C library.
 
 ## How to test
 
@@ -443,12 +443,14 @@ The `test` folder contains a roundtrip test for Windows and for Linux. It compre
 
 `paq8sfx` is a spin-off from paq8px_v216. It adds the self-extracting capabilities and removes much of the logic to keep the stub small.
 
+The source has been converted from C++ to C (C11). The structure follows paq8px: every paq8px class is a C struct with its functions in a file of the same name (`StateMap` in `StateMap.c`, `StateMap_p1()` for `StateMap::p1()`), and the virtual functions became function pointers.
+
 What remained:
 
 - Block type detection and transformation for x86/x64 code. The relative addresses of CALL/JMP instructions are converted to absolute addresses (E8/E9 transform); the transformation is verified during compression and skipped when it would not be reversible.
 - The general (binary) models: NormalModel (order 0-14 contexts), MatchModel, SparseModel, SparseBitModel, ChartModel and the SimilarityModel pair.
 - The ExeModel for x86/x64 code.
-- The mixer (neural network) with AVX2, SSE2 and plain C++ implementations.
+- The mixer (neural network) with AVX2, SSE2 and plain C implementations.
 - The SSE (secondary symbol estimation) stage for the default and the x86/x64 block types.
 - The arithmetic encoder.
 
@@ -496,7 +498,7 @@ At startup the stub reads its own executable file, locates the footer from the l
 
 ## Todo and outlook
 
-- The emphasis was on keeping the code similar to paq8px, so that `paq8sfx` can still receive model updates from paq8px. On the other hand, keeping this similarity makes it difficult to truly optimize `paq8sfx` into a dedicated self-extracting archive or an executable compressor such as UPX.
+- The emphasis was on keeping the code similar to paq8px, so that `paq8sfx` can still receive model updates from paq8px. Since the conversion to C an update has to be translated (see [What was kept from paq8px](#what-was-kept-from-paq8px)), but the files and functions still largely map one to one. On the other hand, keeping this similarity makes it difficult to truly optimize `paq8sfx` into a dedicated self-extracting archive or an executable compressor such as UPX.
 - The full stub does not pass on the exit code of the AutoRun file on Windows.
 
 ## Security

@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "PredictorMain.hpp"
-#include "ArithmeticEncoder.hpp"
-#include "Shared.hpp"
+#include "PredictorMain.h"
+#include "ArithmeticEncoder.h"
+#include "Shared.h"
 
 typedef enum {
     COMPRESS, DECOMPRESS
@@ -12,70 +12,64 @@ typedef enum {
  * An Encoder encodes or decodes bytes using a Predictor and arithmetic encoding.
  * If shared->level is 0, then data is stored in 'archive' without arithmetic coding.
  */
-class Encoder {
-private:
+typedef struct Encoder {
   ArithmeticEncoder ari;
-  const Mode mode; /**< Compress or decompress? */
+  Mode mode; /**< Compress or decompress? */
   File* archive; /**< Compressed data file */
 #ifdef FULL
-  File *alt; /**< decompressByte() source in COMPRESS mode */
+  File* alt; /**< decompressByte() source in COMPRESS mode */
 #endif
-  float p1 {}, p2 {}; /**< percentages for progress indicator: 0.0 .. 1.0 */
+  float p1, p2; /**< percentages for progress indicator: 0.0 .. 1.0 */
+  PredictorMain* predictorMain;
+} Encoder;
 
-  void updateModels(PredictorMain* predictor, uint32_t p, int y);
+/**
+  * Encoder_init(COMPRESS, f) creates encoder for compression to archive @ref f, which
+  * must be open past any header for writing in binary mode.
+  * Encoder_init(DECOMPRESS, f) creates encoder for decompression from archive @ref f,
+  * which must be open past any header for reading in binary mode.
+  * @param m the mode to operate in
+  * @param f the file to read from or write to
+  */
+void Encoder_init(Encoder* en, PredictorMain* predictorMain, Mode m, File* f);
+Mode Encoder_getMode(const Encoder* en);
 
-public:
-
-  PredictorMain *predictorMain;
-  
-  /**
-    * Encoder(COMPRESS, f) creates encoder for compression to archive @ref f, which
-    * must be open past any header for writing in binary mode.
-    * Encoder(DECOMPRESS, f) creates encoder for decompression from archive @ref f,
-    * which must be open past any header for reading in binary mode.
-    * @param m the mode to operate in
-    * @param f the file to read from or write to
-    */
-  Encoder(PredictorMain* predictorMain, Mode m, File *f);
-  Mode getMode() const;
-
-  /**
-    * Returns current length of archive
-    * @return length of archive so far
-    */
-  uint64_t size() const;
+/**
+  * Returns current length of archive
+  * @return length of archive so far
+  */
+uint64_t Encoder_size(const Encoder* en);
 
 #ifdef FULL
-  /**
-    * Should be called exactly once after compression is done and
-    * before closing @ref f. It does nothing in DECOMPRESS mode.
-    */
-  void flush();
+/**
+  * Should be called exactly once after compression is done and
+  * before closing @ref f. It does nothing in DECOMPRESS mode.
+  */
+void Encoder_flush(Encoder* en);
 
-  /**
-    * Sets alternate source to @ref f for decompressByte() in COMPRESS mode (for testing transforms).
-    * @param f
-    */
-  void setFile(File *f);
+/**
+  * Sets alternate source to @ref f for decompressByte() in COMPRESS mode (for testing transforms).
+  * @param f
+  */
+void Encoder_setFile(Encoder* en, File* f);
 
-  /**
-    * compressByte(c) in COMPRESS mode compresses one byte.
-    * @param c the byte to be compressed
-    */
-  void compressByte(PredictorMain* predictor, uint8_t c);
+/**
+  * compressByte(c) in COMPRESS mode compresses one byte.
+  * @param c the byte to be compressed
+  */
+void Encoder_compressByte(Encoder* en, PredictorMain* predictor, uint8_t c);
 #endif // FULL
 
-  /**
-    * decompressByte() in DECOMPRESS mode decompresses and returns one byte.
-    * @return the decompressed byte
-    */
-  uint8_t decompressByte(PredictorMain* predictor);
+/**
+  * decompressByte() in DECOMPRESS mode decompresses and returns one byte.
+  * @return the decompressed byte
+  */
+uint8_t Encoder_decompressByte(Encoder* en, PredictorMain* predictor);
 
-  void initContextForBlockModel(BlockType blockType, int blockInfo);
+void Encoder_initContextForBlockModel(Encoder* en, BlockType blockType, int blockInfo);
 
-  void setStatusRange(float perc1, float perc2);
+void Encoder_setStatusRange(Encoder* en, float perc1, float perc2);
 #ifdef FULL
-  void printStatus(uint64_t n, uint64_t size) const;
+void Encoder_printStatusRange(const Encoder* en, uint64_t n, uint64_t size);
 #endif
-  void printStatus() const;
-};
+void Encoder_printStatus(const Encoder* en);

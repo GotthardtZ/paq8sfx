@@ -1,15 +1,13 @@
-#pragma once
+﻿#pragma once
 
-#include "Array.hpp"
-#include <cstdint>
+#include "SystemDefines.h"
 
 /**
  * 32-bit pseudo random number generator
  */
-class Random {
+typedef struct Random {
   uint64_t _state;
+} Random;
 
-public:
-  Random();
-  uint32_t operator()(int numberOfBits);
-};
+void Random_init(Random* rnd);
+uint32_t Random_next(Random* rnd, int numberOfBits);

@@ -1,28 +1,27 @@
 ﻿#pragma once
 
-#include "APM.hpp"
-#include "APM1.hpp"
-#include "APMPost.hpp"
-#include "Mixer.hpp"
+#include "APM.h"
+#include "APM1.h"
+#include "APMPost.h"
+#include "Mixer.h"
 
 /**
  * Filter the context model with APMs
  */
-class SSE {
-private:
-  Shared * const shared;
+typedef struct SSE {
+  Shared* shared;
   struct {
     APM APMs[3];
     APM1 APM1s[3];
     APMPost APMPostA, APMPostB;
   } x86_64;
   struct {
-      APM APMs[4];
-      APM1 APM1s[3];
-      APMPost APMPostA, APMPostB;
+    APM APMs[4];
+    APM1 APM1s[3];
+    APMPost APMPostA, APMPostB;
   } Generic;
+} SSE;
 
-public:
-  explicit SSE(Shared* const sh);
-  uint32_t p(uint32_t pr_orig);
-};
+void SSE_init(SSE* sse, Shared* sh);
+void SSE_destroy(SSE* sse);
+uint32_t SSE_p(SSE* sse, uint32_t pr_orig);

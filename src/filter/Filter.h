@@ -1,33 +1,13 @@
-#pragma once
-
-#include "../file/File.hpp"
-#include "../Encoder.hpp"
-#include <cstdint>
+﻿#pragma once
 
 /**
  * What to do with the decoded data:
  * write it to the output file, compare it with the output file, or drop it.
  */
-enum class FMode {
+typedef enum FMode {
   FDECOMPRESS, FCOMPARE, FDISCARD
-};
+} FMode;
 
-/**
- * A filter transforms a block of a certain type into a better compressible
- * form (encode) and back (decode).
- */
-class Filter {
-protected:
-  Encoder *encoder = nullptr;
-public:
-#ifdef FULL
-  virtual void encode(File *in, File *out, uint64_t size, int info, int &headerSize) = 0;
-#endif
-  virtual uint64_t decode(File *in, File *out, FMode fMode, uint64_t size, uint64_t &diffFound) = 0;
-
-  void setEncoder(Encoder &en) {
-    encoder = &en;
-  }
-
-  virtual ~Filter() = default;
-};
+// A filter transforms a block of a certain type into a better compressible
+// form (encode) and back (decode). The only filter is the EXE filter
+// (exe.h).

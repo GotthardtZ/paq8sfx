@@ -1,33 +1,14 @@
-#include "APMPost.hpp"
-#include "ArithmeticEncoder.hpp"
-#include "UpdateBroadcaster.hpp"
+﻿#include "APMPost.h"
+#include "Array.h"
+#include "ArithmeticEncoder.h"
+#include "UpdateBroadcaster.h"
 
-APMPost::APMPost(const Shared* const sh, const uint32_t n) : shared(sh), index(0), n(n), t(n* UINT64_C(4096)) {
-  assert(n > 0);
-  for(size_t i = 0; i < n; ++i ) {
-    for(uint64_t j = 0; j < 4096; ++j ) {
-      t[i * 4096 + j] = ((4096 - j) >> 1) << 32 | (j >> 1);
-    }
-  }
-}
-
-
-uint32_t APMPost::p(const uint32_t pr, const uint32_t cxt) {
-  shared->GetUpdateBroadcaster()->subscribe(this);
-  assert(pr < 4096 && cxt < n);
-  index = cxt * 4096 + pr;
-  uint64_t n0 = t[index] >> 32;
-  uint64_t n1 = t[index] &0xffffffff;
-  n0 = n0 * 2 + 1;
-  n1 = n1 * 2 + 1;
-  constexpr int PRECISION = ArithmeticEncoder::PRECISION;
-  return static_cast<uint32_t>((n1 << PRECISION) / (n0+n1));
-}
-
-void APMPost::update() {
+static void APMPost_update(IPredictor* const predictor) {
+  APMPost* const apm = (APMPost*)predictor;
+  const Shared* const shared = apm->shared;
   INJECT_SHARED_y
   uint64_t n0, n1, value;
-  value = t[index];
+  value = apm->t[apm->index];
   n0 = value >> 32;
   n1 = value & 0xffffffff;
 
@@ -37,5 +18,41 @@ void APMPost::update() {
   n0 >>= shift;
   n1 >>= shift;
 
-  t[index] = n0 << 32 | n1;
+  apm->t[apm->index] = n0 << 32 | n1;
+}
+
+void APMPost_init(APMPost* const apm, const Shared* const sh, const uint32_t n) {
+  apm->predictor.update = APMPost_update;
+  apm->shared = sh;
+  apm->index = 0;
+  apm->n = n;
+  apm->t = ARRAY_NEW(uint64_t, n * UINT64_C(4096));
+  assert(n > 0);
+  for(size_t i = 0; i < n; ++i ) {
+    for(uint64_t j = 0; j < 4096; ++j ) {
+      apm->t[i * 4096 + j] = ((4096 - j) >> 1) << 32 | (j >> 1);
+    }
+  }
+}
+
+void APMPost_destroy(APMPost* const apm) {
+  Array_delete(apm->t);
+  apm->t = NULL;
+}
+
+uint32_t APMPost_p(APMPost* const apm, const uint32_t pr, const uint32_t cxt) {
+  UpdateBroadcaster_subscribe(Shared_getUpdateBroadcaster(apm->shared), &apm->predictor);
+  assert(pr < 4096 && cxt < apm->n);
+  apm->index = cxt * 4096 + pr;
+  uint64_t n0 = apm->t[apm->index] >> 32;
+  uint64_t n1 = apm->t[apm->index] &0xffffffff;
+  n0 = n0 * 2 + 1;
+  n1 = n1 * 2 + 1;
+  return (uint32_t)((n1 << ArithmeticEncoder_PRECISION) / (n0+n1));
+}
+
+void APMPost_print(const APMPost* const apm) {
+  for (int i = 0; i < 4096; i++) {
+    printf("%d\t%d\t%d\n",i,(int)(apm->t[i]>>32), (int)(apm->t[i]&0xffffffff));
+  }
 }

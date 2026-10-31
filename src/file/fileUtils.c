@@ -1,45 +1,17 @@
-#pragma once
+﻿#include "fileUtils.h"
+#include "../String.h"
 
-#include <cerrno>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include "../String.hpp"
-#include "../SystemDefines.hpp"
-
-//////////////////// IO functions and classes ///////////////////
-// File names are UTF-8 (char*) everywhere in this program. Linux takes them
-// as they are; Windows needs UTF-16 (wchar_t*), so the wrappers below convert
-// them before calling the Windows functions.
-
-
-// The preferred slash for displaying
-// We will change the BADSLASH to GOODSLASH before displaying a path string to the user
 #ifdef WINDOWS
-#define BADSLASH '/'
-#define GOODSLASH '\\'
-#else
-#define BADSLASH '\\'
-#define GOODSLASH '/'
-#endif
-
-// Only for Windows: a UTF-16 copy of a UTF-8 string.
-// The copy is freed when the object goes out of scope.
-#ifdef WINDOWS
-class WcharStr {
-public:
-  wchar_t *wchar_str;
-  explicit WcharStr(const char *utf8_str) {
-    const int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, nullptr, 0);
-    wchar_str = new wchar_t[bufferSize];
-    MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, wchar_str, bufferSize);
+// Only for Windows: a UTF-16 copy of a UTF-8 string. Free it with free().
+static wchar_t* toWide(const char* const utf8_str) {
+  const int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, NULL, 0);
+  wchar_t* const wchar_str = (wchar_t*)malloc((size_t)bufferSize * sizeof(wchar_t));
+  if (wchar_str == NULL) {
+    quit("Out of memory.");
   }
-  ~WcharStr() {
-    delete[] wchar_str;
-  }
-};
+  MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, wchar_str, bufferSize);
+  return wchar_str;
+}
 #endif
 
 #ifdef WINDOWS
@@ -48,21 +20,14 @@ public:
 #define STAT stat
 #endif
 
-static constexpr int READ = 0;
-static constexpr int WRITE = 1;
-
-/**
- * Wrapper function (Linux vs Windows) to open a file
- * @param filename
- * @param mode READ: open an existing file for reading;
- *             WRITE: create the file (or empty it) for reading and writing
- * @return the file, or nullptr on failure
- */
-static FILE* openFile(const char *filename, const int mode) {
+FILE* openFile(const char* const filename, const int mode) {
 #ifdef WINDOWS
-  return _wfopen(WcharStr(filename).wchar_str, mode == READ ? L"rb" : L"wb+");
+  wchar_t* const wideName = toWide(filename);
+  FILE* const file = _wfopen(wideName, mode == FILE_READ ? L"rb" : L"wb+");
+  free(wideName);
+  return file;
 #else
-  return fopen(filename, mode == READ ? "rb" : "wb+");
+  return fopen(filename, mode == FILE_READ ? "rb" : "wb+");
 #endif
 }
 
@@ -72,27 +37,25 @@ static FILE* openFile(const char *filename, const int mode) {
  * @param status receives the details of the file or directory
  * @return true on success; on failure errno tells why
  */
-static bool statPath(const char *path, struct STAT &status) {
+static bool statPath(const char* const path, struct STAT* const status) {
 #ifdef WINDOWS
-  return _wstat64(WcharStr(path).wchar_str, &status) == 0;
+  wchar_t* const widePath = toWide(path);
+  const bool success = _wstat64(widePath, status) == 0;
+  const int error = errno;
+  free(widePath);
+  errno = error;
+  return success;
 #else
-  return stat(path, &status) == 0;
+  return stat(path, status) == 0;
 #endif
 }
 
-/**
- * examines given "path" and returns:
- * 0: on error
- * 1: when exists and is a file
- * 2: when exists and is a directory
- * 3: when does not exist, but looks like a file       /abcd/efgh
- * 4: when does not exist, but looks like a directory  /abcd/efgh/
- */
-static int examinePath(const char *path) {
-  struct STAT status {};
-  if( !statPath(path, status) ) {
+int examinePath(const char* const path) {
+  struct STAT status;
+  memset(&status, 0, sizeof(status));
+  if( !statPath(path, &status) ) {
     if( errno == ENOENT ) { //no such file or directory
-      const int len = static_cast<int>(strlen(path));
+      const int len = (int)strlen(path);
       if( len == 0 ) {
         return 0; //error: path is an empty string
       }
@@ -114,48 +77,45 @@ static int examinePath(const char *path) {
   return 0; //error: "path" may be a socket, symlink, named pipe, etc.
 }
 
-/**
- * Creates a directory if it does not exist
- * @return 0: failed, 1: created successfully, 2: the directory already exists
- */
-static int makeDir(const char *dir) {
+int makeDir(const char* const dir) {
   if( examinePath(dir) == 2 ) { //existing directory
     return 2;
   }
 #ifdef WINDOWS
-  const bool created = (CreateDirectoryW(WcharStr(dir).wchar_str, nullptr) == TRUE);
+  wchar_t* const wideDir = toWide(dir);
+  const bool created = (CreateDirectoryW(wideDir, NULL) == TRUE);
+  free(wideDir);
 #else
   const bool created = (mkdir(dir, 0777) == 0);
 #endif
   return created ? 1 : 0;
 }
 
-/**
- * Creates the directories in the path of filename if they don't exist.
- */
-static void makeDirectories(const char *filename) {
-  String path(filename);
+void makeDirectories(const char* const filename) {
+  String path;
+  String_init(&path, filename);
   uint64_t start = 0;
-  if( path[1] == ':' ) {
+  if( path.data[1] == ':' ) {
     start = 2; //skip drive letter (c:)
   }
-  if( path[start] == '/' || path[start] == '\\' ) {
+  if( path.data[start] == '/' || path.data[start] == '\\' ) {
     start++; //skip leading slashes (root dir)
   }
-  for( uint64_t i = start; path[i] != 0; ++i ) {
-    if( path[i] == '/' || path[i] == '\\' ) {
-      char saveChar = path[i];
-      path[i] = 0;
-      const char *dirName = path.c_str();
+  for( uint64_t i = start; path.data[i] != 0; ++i ) {
+    if( path.data[i] == '/' || path.data[i] == '\\' ) {
+      char saveChar = path.data[i];
+      path.data[i] = 0;
+      const char *dirName = String_c_str(&path);
       const int created = makeDir(dirName);
       if( created == 0 ) {
         printf("Unable to create directory %s", dirName);
-        quit();
+        quit(NULL);
       }
       if( created == 1 ) {
         printf("Created directory %s\n", dirName);
       }
-      path[i] = saveChar;
+      path.data[i] = saveChar;
     }
   }
+  String_destroy(&path);
 }

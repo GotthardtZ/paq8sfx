@@ -1,16 +1,15 @@
 ﻿#pragma once
 
-#include "Mixer.hpp"
-#include "Shared.hpp"
-#include "Mixer_Scalar.hpp"
-#include "Mixer_SSE2.hpp"
-#include "Mixer_AVX2.hpp"
+#include "Mixer.h"
+#include "Shared.h"
+#include "Mixer_Scalar.h"
+#include "Mixer_SSE2.h"
+#include "Mixer_AVX2.h"
 
-class MixerFactory
-{
-private:
-  const Shared* const shared;
-public:
-  MixerFactory(const Shared* const sh);
-  Mixer* createMixer(int n, int m, int s, int promoted) const;
-};
+/**
+ * Creates a mixer with the best SIMD implementation for the CPU
+ * (shared->chosenSimd). See Mixer.h for the parameters; promoted is the
+ * number of extra inputs of the second layer (see Mixer_promote()).
+ * Free it with Mixer_delete().
+ */
+Mixer* MixerFactory_createMixer(const Shared* sh, int n, int m, int s, int promoted);

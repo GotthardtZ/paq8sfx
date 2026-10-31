@@ -7,26 +7,28 @@
 //////////////////////// Versioning ////////////////////////////////////////
 
 #define PROGNAME     "paq8sfx"
-#define PROGVERSION  "2"  //update version here before publishing your changes
+#define PROGVERSION  "3"  //update version here before publishing your changes
 #define PROGYEAR     "2026"
 
 
-#include "Utils.hpp"
-#include "Encoder.hpp"
-#include "Shared.hpp"
-#include "String.hpp"
-#include "file/FileExeRead.hpp"
-#include "file/FileMemRead.hpp"
-#include "file/FileName.hpp"
-#include "file/fileUtils2.hpp"
-#include "filter/Filters.hpp"
-#include "PredictorMain.hpp"
+#include "Utils.h"
+#include "Array.h"
+#include "Encoder.h"
+#include "Shared.h"
+#include "String.h"
+#include "file/FileDisk.h"
+#include "file/FileExeRead.h"
+#include "file/FileMemRead.h"
+#include "file/FileName.h"
+#include "file/fileUtils2.h"
+#include "filter/Filters.h"
+#include "PredictorMain.h"
 
 #ifdef UNIX
 #include <sys/stat.h> //chmod()
 #endif
 
-// This file is compiled twice (see SystemDefines.hpp):
+// This file is compiled twice (see SystemDefines.h):
 //   FULL   paq8sfx, the compressor:  compress, decompress, assemble a package
 //   SFX    the stub:                 extract a package, decompress, assemble
 //                                    a package (an extract-only stub only extracts)
@@ -60,9 +62,9 @@ static const char ARCHIVE_EXTENSION[] = "." PROGNAME;
 // Returns the compression level, or 0 if this is not a paq8sfx archive.
 static int ReadArchiveHeader(File* archive) {
   for (const char* expected = PROGNAME; *expected != '\0'; expected++) {
-    if (archive->getchar() != static_cast<uint8_t>(*expected)) return 0;
+    if (File_getChar(archive) != (uint8_t)(*expected)) return 0;
   }
-  const int level = archive->getchar();
+  const int level = File_getChar(archive);
   return (level >= 1 && level <= 12) ? level : 0;
 }
 
@@ -107,26 +109,26 @@ static void WriteLE32(uint8_t* p, uint32_t value) {
   p[3] = (uint8_t)(value >> 24);
 }
 
-struct Payload {
+typedef struct Payload {
   const char*    name;
   const uint8_t* data;
   uint32_t       size;
-};
+} Payload;
 
 // A package, as found in memory. The names and the data are not copied:
 // they point into the package image.
-struct Package {
+typedef struct Package {
   uint64_t stubSize;                // size of the stub part
   int      count;                   // number of payloads; 0 for a bare stub
   Payload  payloads[MAX_PAYLOADS];
-};
+} Package;
 
 // Locates the payloads of a package image from its footer.
 // An image whose last bytes do not form a valid footer is a bare stub:
 // it has no payloads, and the whole image is the stub.
-static void ParsePackage(const uint8_t* image, uint64_t imageSize, Package& package) {
-  package.stubSize = imageSize;
-  package.count = 0;
+static void ParsePackage(const uint8_t* image, uint64_t imageSize, Package* package) {
+  package->stubSize = imageSize;
+  package->count = 0;
   if (imageSize < 2) return;
 
   const uint32_t footerSize = image[imageSize - 1];
@@ -141,27 +143,27 @@ static void ParsePackage(const uint8_t* image, uint64_t imageSize, Package& pack
     const uint8_t* nameEnd = name;
     while (nameEnd < sizes && *nameEnd != 0) nameEnd++;
     if (nameEnd == name || nameEnd == sizes) return;  // empty, or not ended by a zero byte
-    package.payloads[i].name = reinterpret_cast<const char*>(name);
-    package.payloads[i].size = ReadLE32(sizes + i * 4);
-    payloadsSize += package.payloads[i].size;
+    package->payloads[i].name = (const char*)(name);
+    package->payloads[i].size = ReadLE32(sizes + i * 4);
+    payloadsSize += package->payloads[i].size;
     name = nameEnd + 1;
   }
   if (name != sizes || payloadsSize > imageSize - footerSize) return;
 
-  package.stubSize = imageSize - footerSize - payloadsSize;
-  const uint8_t* data = image + package.stubSize;
+  package->stubSize = imageSize - footerSize - payloadsSize;
+  const uint8_t* data = image + package->stubSize;
   for (uint32_t i = 0; i < count; i++) {
-    package.payloads[i].data = data;
-    data += package.payloads[i].size;
+    package->payloads[i].data = data;
+    data += package->payloads[i].size;
   }
-  package.count = static_cast<int>(count);
+  package->count = (int)(count);
 }
 
 #if defined(FULL) || !defined(SFX_EXTRACT_ONLY)
 
 // Appends the content of a file to the package.
 // Returns false on error; otherwise size is the number of bytes appended.
-static bool AppendFile(FILE* package, const char* path, uint32_t& size) {
+static bool AppendFile(FILE* package, const char* path, uint32_t* size) {
   FILE* file = fopen(path, "rb");
   if (!file) {
     SFX_ERR("Cannot open: %s\n", path);
@@ -186,7 +188,7 @@ static bool AppendFile(FILE* package, const char* path, uint32_t& size) {
     }
   }
   fclose(file);
-  size = static_cast<uint32_t>(total);
+  *size = (uint32_t)(total);
   return ok;
 }
 
@@ -218,7 +220,7 @@ static bool Assemble(const uint8_t* stubImage, uint64_t stubImageSize, const cha
   char line[256];
   bool ok = true;
   while (ok && fgets(line, sizeof(line), script)) {
-    const int length = static_cast<int>(strcspn(line, "\r\n"));
+    const int length = (int)(strcspn(line, "\r\n"));
     if (length == 0) continue;
     if (count == MAX_PAYLOADS) {
       SFX_ERR("Too many files in the script, at most %d are possible.\n", MAX_PAYLOADS);
@@ -252,26 +254,26 @@ static bool Assemble(const uint8_t* stubImage, uint64_t stubImageSize, const cha
 
   // The stub
   Package stub;
-  ParsePackage(stubImage, stubImageSize, stub);
-  ok = fwrite(stubImage, 1, static_cast<size_t>(stub.stubSize), out) == stub.stubSize;
+  ParsePackage(stubImage, stubImageSize, &stub);
+  ok = fwrite(stubImage, 1, (size_t)(stub.stubSize), out) == stub.stubSize;
   SFX_MSG("Stub: %" PRIu64 " bytes\n", stub.stubSize);
 
   // The payloads; their sizes go into the footer, after the names.
   uint8_t* const sizes = footer + namesSize;
-  const char* name = reinterpret_cast<const char*>(footer);
+  const char* name = (const char*)(footer);
   for (int i = 0; ok && i < count; i++) {
     SFX_MSG("  [%d] %s\n", i, name);
     uint32_t size = 0;
-    ok = AppendFile(out, name, size);
+    ok = AppendFile(out, name, &size);
     WriteLE32(sizes + i * 4, size);
     name += strlen(name) + 1;
   }
 
   // The footer
   const int footerSize = namesSize + count * 4 + 2;
-  footer[footerSize - 2] = static_cast<uint8_t>(count);
-  footer[footerSize - 1] = static_cast<uint8_t>(footerSize);
-  ok = ok && fwrite(footer, 1, footerSize, out) == static_cast<size_t>(footerSize);
+  footer[footerSize - 2] = (uint8_t)(count);
+  footer[footerSize - 1] = (uint8_t)(footerSize);
+  ok = ok && fwrite(footer, 1, footerSize, out) == (size_t)(footerSize);
   fclose(out);
   if (!ok) {
     SFX_ERR("Cannot write: %s\n", packagePath);
@@ -305,27 +307,32 @@ static int DecompressArchive(File* archive, const char* outFile) {
   // Shared and PredictorMain hold the whole state of the model. Each archive
   // gets a new pair, so several archives can be decompressed in a row.
   // Shared is too large for the stack of the libc-free stub (see AppendFile).
-  Shared* shared = new Shared();
-  shared->init(level);
-  {
-    PredictorMain predictorMain(shared);
-    Encoder en(&predictorMain, DECOMPRESS, archive);
-    decompressFile(shared, outFile, FMode::FDECOMPRESS, en);
-  }
-  delete shared;
+  Shared* shared = (Shared*)malloc(sizeof(Shared));
+  if (shared == NULL) quit("Out of memory.");
+  Shared_init(shared, (uint8_t)level);
+  PredictorMain* predictorMain = (PredictorMain*)malloc(sizeof(PredictorMain));
+  if (predictorMain == NULL) quit("Out of memory.");
+  PredictorMain_init(predictorMain, shared);
+  Encoder en;
+  Encoder_init(&en, predictorMain, DECOMPRESS, archive);
+  decompressFile(shared, outFile, FDECOMPRESS, &en);
+  PredictorMain_destroy(predictorMain);
+  free(predictorMain);
+  Shared_destroy(shared);
+  free(shared);
   return 0;
 }
 
 // Writes a payload to a file in the current folder. Returns false on error.
-static bool WritePayload(const Payload& payload) {
-  FILE* out = fopen(payload.name, "wb");
+static bool WritePayload(const Payload* payload) {
+  FILE* out = fopen(payload->name, "wb");
   if (!out) {
-    SFX_ERR("Cannot create: %s\n", payload.name);
+    SFX_ERR("Cannot create: %s\n", payload->name);
     return false;
   }
-  const bool ok = fwrite(payload.data, 1, payload.size, out) == payload.size;
+  const bool ok = fwrite(payload->data, 1, payload->size, out) == payload->size;
   fclose(out);
-  if (!ok) SFX_ERR("Write error: %s\n", payload.name);
+  if (!ok) SFX_ERR("Write error: %s\n", payload->name);
   return ok;
 }
 
@@ -348,36 +355,39 @@ static void MakeExecutable(const char* path) {
 // ------------------------------------------------------------
 
 // Extracts all payloads and runs the first one, the AutoRun file.
-static int ExtractAndRun() {
+static int ExtractAndRun(void) {
+  // The package image stays in memory until the program ends: the payload
+  // names point into it.
   FileExeRead self;
+  FileExeRead_init(&self);
   Package package;
-  ParsePackage(self.buf, self.fileSize, package);
+  ParsePackage(self.buf, self.fileSize, &package);
   if (package.count == 0) {
     SFX_ERR("No payload.\n");
     return 1;
   }
 
   for (int i = 0; i < package.count; i++) {
-    if (!WritePayload(package.payloads[i])) return 1;
+    if (!WritePayload(&package.payloads[i])) return 1;
     MakeExecutable(package.payloads[i].name);
   }
 
-  const Payload& autoRun = package.payloads[0];
-  if (autoRun.size == 0) {
+  const Payload* autoRun = &package.payloads[0];
+  if (autoRun->size == 0) {
     SFX_ERR("AutoRun file has zero length, skipping execution.\n");
     return 0;
   }
 
 #ifdef WINDOWS
   // The command interpreter runs it: a .cmd or .bat file, or a program.
-  system(autoRun.name);
+  system(autoRun->name);
   return 0;
 #else
   // The shell runs it; this program becomes the shell. The name gets "./"
   // in front: a plain name would be searched for on the PATH.
   char path[2 + MAX_FOOTER_SIZE] = "./";
-  memcpy(path + 2, autoRun.name, strlen(autoRun.name) + 1);
-  char* args[3] = { const_cast<char*>("/bin/sh"), path, nullptr };
+  memcpy(path + 2, autoRun->name, strlen(autoRun->name) + 1);
+  char* args[3] = { (char*)"/bin/sh", path, NULL };
   execv("/bin/sh", args);
   return 1;  // only reached if the shell could not be started
 #endif
@@ -385,9 +395,10 @@ static int ExtractAndRun() {
 
 static int DecompressFile(const char* archiveFile, const char* outFile) {
   FileDisk archive;
-  archive.open(archiveFile, /*mustSucceed=*/true);
-  const int result = DecompressArchive(&archive, outFile);
-  archive.close();
+  FileDisk_init(&archive);
+  File_open(&archive.base, archiveFile, /*mustSucceed=*/true);
+  const int result = DecompressArchive(&archive.base, outFile);
+  File_close(&archive.base);
   return result;
 }
 
@@ -400,7 +411,10 @@ int main(int argc, char** argv) {
   }
   if (argc == 3 && strcmp(argv[1], "-a") == 0) {
     FileExeRead self;
-    return Assemble(self.buf, self.fileSize, argv[2]) ? 0 : 1;
+    FileExeRead_init(&self);
+    const int result = Assemble(self.buf, self.fileSize, argv[2]) ? 0 : 1;
+    FileExeRead_destroy(&self);
+    return result;
   }
   SFX_ERR("Usage:\n"
     "  %s [no options]\n"
@@ -428,7 +442,7 @@ static size_t LengthWithoutArchiveExtension(const char* name) {
   const char* extension = name + length - extensionLength;
   for (size_t i = 0; i < extensionLength; i++) {
     char c = extension[i];
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
     if (c != ARCHIVE_EXTENSION[i]) return 0;
   }
   return length - extensionLength;
@@ -436,29 +450,33 @@ static size_t LengthWithoutArchiveExtension(const char* name) {
 
 // Extracts all payloads, decompressing the compressed ones straight from
 // the package image in memory.
-static int ExtractAll() {
+static int ExtractAll(void) {
+  // The package image stays in memory until the program ends: the payloads
+  // point into it.
   FileExeRead self;
+  FileExeRead_init(&self);
   Package package;
-  ParsePackage(self.buf, self.fileSize, package);
+  ParsePackage(self.buf, self.fileSize, &package);
   if (package.count == 0) {
     SFX_ERR("No payload.\n");
     return 1;
   }
 
   for (int i = 0; i < package.count; i++) {
-    const Payload& payload = package.payloads[i];
-    const size_t outputLength = LengthWithoutArchiveExtension(payload.name);
+    const Payload* payload = &package.payloads[i];
+    const size_t outputLength = LengthWithoutArchiveExtension(payload->name);
     if (outputLength == 0) {
       if (!WritePayload(payload)) return 1;
-      MakeExecutable(payload.name);
+      MakeExecutable(payload->name);
     }
     else {
       char output[MAX_FOOTER_SIZE];  // large enough: the name comes from the footer
-      memcpy(output, payload.name, outputLength);
+      memcpy(output, payload->name, outputLength);
       output[outputLength] = '\0';
-      FileMemRead archive(payload.data, payload.size);
-      if (DecompressArchive(&archive, output) != 0) {
-        SFX_ERR("Cannot decompress: %s\n", payload.name);
+      FileMemRead archive;
+      FileMemRead_init(&archive, payload->data, payload->size);
+      if (DecompressArchive(&archive.base, output) != 0) {
+        SFX_ERR("Cannot decompress: %s\n", payload->name);
         return 1;
       }
       MakeExecutable(output);
@@ -488,7 +506,7 @@ int main(int argc, char** argv) {
 // ============================================================
 #ifdef FULL
 
-static void PrintUsage() {
+static void PrintUsage(void) {
   printf("\n"
     "Usage:\n"
     "  " PROGNAME " -LEVEL input [output]     compress a file; LEVEL is 1..12\n"
@@ -500,7 +518,7 @@ static void PrintUsage() {
     "See README.md for the details.\n");
 }
 
-enum class Command { None, Compress, Decompress };
+typedef enum Command { CMD_NONE, CMD_COMPRESS, CMD_DECOMPRESS } Command;
 
 // Parses a compression level: 1 or 2 digits and nothing else.
 // Returns -1 if text is not a number like that.
@@ -515,10 +533,12 @@ static int ParseLevel(const char* text) {
 }
 
 static int CompressOrDecompress(int argc, char** argv) {
-  Command command = Command::None;
+  Command command = CMD_NONE;
   int level = 0;
   FileName input;
   FileName output;
+  String_init(&input, "");
+  String_init(&output, "");
 
   // The command line
 
@@ -528,157 +548,171 @@ static int CompressOrDecompress(int argc, char** argv) {
       if (arg[1] == '\0') {
         quit("Empty command.");
       }
-      if (command != Command::None) {
+      if (command != CMD_NONE) {
         quit("Only one command may be specified.");
       }
       if (strcasecmp(arg, "-d") == 0) {
-        command = Command::Decompress;
+        command = CMD_DECOMPRESS;
       }
       else if (ParseLevel(arg + 1) >= 0) {
         level = ParseLevel(arg + 1);
         if (level < 1 || level > 12) {
           quit("Compression level must be between 1 and 12.");
         }
-        command = Command::Compress;
+        command = CMD_COMPRESS;
       }
       else {
         printf("Invalid command: %s", arg);
-        quit();
+        quit(NULL);
       }
     }
-    else if (input.strsize() == 0) {
-      input += arg;
-      input.replaceSlashes();
+    else if (String_strsize(&input) == 0) {
+      String_append(&input, arg);
+      FileName_replaceSlashes(&input);
     }
-    else if (output.strsize() == 0) {
-      output += arg;
-      output.replaceSlashes();
+    else if (String_strsize(&output) == 0) {
+      String_append(&output, arg);
+      FileName_replaceSlashes(&output);
     }
     else {
       quit("More than two file names specified. Only an input and an output is needed.");
     }
   }
 
-  if (command == Command::None) {
+  if (command == CMD_NONE) {
     quit("A command switch is required: -1..-12 to compress, -d to decompress,\n"
          "-a stubfile scriptfile to assemble a self-extracting package.");
   }
-  if (input.strsize() == 0) {
-    quit(command == Command::Compress ? "An input file is required for compressing."
-                                      : "An archive file is required for decompressing.");
+  if (String_strsize(&input) == 0) {
+    quit(command == CMD_COMPRESS ? "An input file is required for compressing."
+                                 : "An archive file is required for decompressing.");
   }
 
   // The input: an existing file. It is split into path and file name.
 
-  int pathType = examinePath(input.c_str());
+  int pathType = examinePath(String_c_str(&input));
   if (pathType == 2 || pathType == 4) {
-    printf("\nSpecified input is a directory but should be a file: %s", input.c_str());
-    quit();
+    printf("\nSpecified input is a directory but should be a file: %s", String_c_str(&input));
+    quit(NULL);
   }
   if (pathType == 3) {
-    printf("\nSpecified input file does not exist: %s", input.c_str());
-    quit();
+    printf("\nSpecified input file does not exist: %s", String_c_str(&input));
+    quit(NULL);
   }
   if (pathType == 0) {
-    printf("\nThere is a problem with the specified input file: %s", input.c_str());
-    quit();
+    printf("\nThere is a problem with the specified input file: %s", String_c_str(&input));
+    quit(NULL);
   }
-  const FileName inputFile(input.c_str());
+  FileName inputFile;
+  String_init(&inputFile, String_c_str(&input));
   FileName inputPath;
-  if (input.lastSlashPos() >= 0) {
-    inputPath += input.c_str();
-    inputPath.keepPath();
-    input.keepFilename();
+  String_init(&inputPath, "");
+  if (FileName_lastSlashPos(&input) >= 0) {
+    String_append(&inputPath, String_c_str(&input));
+    FileName_keepPath(&inputPath);
+    FileName_keepFilename(&input);
   }
 
   // The output: a file name (existing or not), a folder, or nothing.
   // It is split into path and file name; the file name may stay empty.
 
   FileName outputPath;
-  if (output.strsize() > 0) {
-    pathType = examinePath(output.c_str());
+  String_init(&outputPath, "");
+  if (String_strsize(&output) > 0) {
+    pathType = examinePath(String_c_str(&output));
     if (pathType == 1 || pathType == 3) {
-      if (output.lastSlashPos() >= 0) {
-        outputPath += output.c_str();
-        outputPath.keepPath();
-        output.keepFilename();
+      if (FileName_lastSlashPos(&output) >= 0) {
+        String_append(&outputPath, String_c_str(&output));
+        FileName_keepPath(&outputPath);
+        FileName_keepFilename(&output);
       }
     }
     else if (pathType == 2 || pathType == 4) {
-      outputPath += output.c_str();
-      if (!outputPath.endsWith("/") && !outputPath.endsWith("\\")) {
-        outputPath += GOODSLASH;
+      String_append(&outputPath, String_c_str(&output));
+      if (!String_endsWith(&outputPath, "/") && !String_endsWith(&outputPath, "\\")) {
+        String_appendChar(&outputPath, GOODSLASH);
       }
-      output.resize(0);
-      output.pushBack(0);
+      String_assign(&output, "");
     }
     else {
-      printf("\nThere is a problem with the specified output: %s", output.c_str());
-      quit();
+      printf("\nThere is a problem with the specified output: %s", String_c_str(&output));
+      quit(NULL);
     }
   }
 
   // Verifies that the input is readable, and not too large.
-  const uint64_t inputSize = getFileSize(inputFile.c_str());
+  const uint64_t inputSize = getFileSize(String_c_str(&inputFile));
 
   // Without an output file name: the input name with the archive extension
   // appended (compression) or removed (decompression).
-  if (output.strsize() == 0) {
-    output += input.c_str();
-    if (command == Command::Compress) {
-      output += ARCHIVE_EXTENSION;
+  if (String_strsize(&output) == 0) {
+    String_append(&output, String_c_str(&input));
+    if (command == CMD_COMPRESS) {
+      String_append(&output, ARCHIVE_EXTENSION);
     }
-    else if (output.endsWith(ARCHIVE_EXTENSION)) {
-      output.stripEnd(static_cast<int>(strlen(ARCHIVE_EXTENSION)));
+    else if (String_endsWith(&output, ARCHIVE_EXTENSION)) {
+      String_stripEnd(&output, strlen(ARCHIVE_EXTENSION));
     }
     else {
       printf("\nCan't construct output filename from archive filename.\n"
         "Archive file extension must be: '%s'", ARCHIVE_EXTENSION);
-      quit();
+      quit(NULL);
     }
   }
-  FileName outputFile(outputPath.c_str());
-  outputFile += output.c_str();
+  FileName outputFile;
+  String_init(&outputFile, String_c_str(&outputPath));
+  String_append(&outputFile, String_c_str(&output));
 
   // Compress or decompress
 
   Shared shared;
   FileDisk archive;
+  FileDisk_init(&archive);
+  PredictorMain predictorMain;
+  Encoder en;
 
-  if (command == Command::Compress) {
-    printf("\nCreating archive %s ...\n", outputFile.c_str());
-    archive.create(outputFile.c_str());
-    archive.append(PROGNAME);
-    archive.putChar(static_cast<uint8_t>(level));
+  if (command == CMD_COMPRESS) {
+    printf("\nCreating archive %s ...\n", String_c_str(&outputFile));
+    File_create(&archive.base, String_c_str(&outputFile));
+    File_append(&archive.base, PROGNAME);
+    File_putChar(&archive.base, (uint8_t)(level));
 
-    shared.init(level);
-    PredictorMain predictorMain(&shared);
-    Encoder en(&predictorMain, COMPRESS, &archive);
+    Shared_init(&shared, (uint8_t)level);
+    PredictorMain_init(&predictorMain, &shared);
+    Encoder_init(&en, &predictorMain, COMPRESS, &archive.base);
 
-    printf("\nFilename: %s (%" PRIu64 " bytes)\n", inputFile.c_str(), inputSize);
-    compressfile(&shared, inputFile.c_str(), inputSize, en);
-    en.flush();
+    printf("\nFilename: %s (%" PRIu64 " bytes)\n", String_c_str(&inputFile), inputSize);
+    compressfile(&shared, String_c_str(&inputFile), inputSize, &en);
+    Encoder_flush(&en);
     printf("-----------------------\n");
     printf("Total input size     : %" PRIu64 "\n", inputSize);
-    printf("Total archive size   : %" PRIu64 "\n", en.size());
+    printf("Total archive size   : %" PRIu64 "\n", Encoder_size(&en));
     printf("\n");
   }
   else {
-    archive.open(inputFile.c_str(), /*mustSucceed=*/true);
-    level = ReadArchiveHeader(&archive);
+    File_open(&archive.base, String_c_str(&inputFile), /*mustSucceed=*/true);
+    level = ReadArchiveHeader(&archive.base);
     if (level == 0) {
-      printf("\n%s: not a valid %s archive.", inputFile.c_str(), PROGNAME);
-      quit();
+      printf("\n%s: not a valid %s archive.", String_c_str(&inputFile), PROGNAME);
+      quit(NULL);
     }
     printf("\n");
 
-    shared.init(level);
-    PredictorMain predictorMain(&shared);
-    Encoder en(&predictorMain, DECOMPRESS, &archive);
-    decompressFile(&shared, outputFile.c_str(), FMode::FDECOMPRESS, en);
+    Shared_init(&shared, (uint8_t)level);
+    PredictorMain_init(&predictorMain, &shared);
+    Encoder_init(&en, &predictorMain, DECOMPRESS, &archive.base);
+    decompressFile(&shared, String_c_str(&outputFile), FDECOMPRESS, &en);
   }
 
-  archive.close();
+  File_close(&archive.base);
+  PredictorMain_destroy(&predictorMain);
+  Shared_destroy(&shared);
+  String_destroy(&input);
+  String_destroy(&output);
+  String_destroy(&inputFile);
+  String_destroy(&inputPath);
+  String_destroy(&outputPath);
+  String_destroy(&outputFile);
   return 0;
 }
 
@@ -686,17 +720,20 @@ static int CompressOrDecompress(int argc, char** argv) {
 // a package; from a package only the stub part is used.
 static int AssembleWithStub(const char* stubFile, const char* scriptFile) {
   FileDisk file;
-  file.open(stubFile, /*mustSucceed=*/true);
-  file.setEnd();
-  const uint64_t size = file.curPos();
-  file.setpos(0);
-  Array<uint8_t> image(size);
-  if (size == 0 || file.blockRead(&image[0], size) != size) {
+  FileDisk_init(&file);
+  File_open(&file.base, stubFile, /*mustSucceed=*/true);
+  File_setEnd(&file.base);
+  const uint64_t size = File_curPos(&file.base);
+  File_setpos(&file.base, 0);
+  uint8_t* image = ARRAY_NEW(uint8_t, size);
+  if (size == 0 || File_blockRead(&file.base, &image[0], size) != size) {
     printf("Cannot read stub: %s\n", stubFile);
     return 1;
   }
-  file.close();
-  return Assemble(&image[0], size, scriptFile) ? 0 : 1;
+  File_close(&file.base);
+  const int result = Assemble(&image[0], size, scriptFile) ? 0 : 1;
+  Array_delete(image);
+  return result;
 }
 
 int main(int argc, char** argv) {

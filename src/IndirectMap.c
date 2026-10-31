@@ -1,48 +1,68 @@
-#include "IndirectMap.hpp"
-#include "Stretch.hpp"
+﻿#include "IndirectMap.h"
+#include "Array.h"
+#include "Stretch.h"
 
-IndirectMap::IndirectMap(const Shared* const sh, const int bitsOfContext, const int inputBits, const int scale, const int limit) : 
-  shared(sh), data((UINT64_C(1) << bitsOfContext) * ((UINT64_C(1) << inputBits) - 1)),
-  sm {sh, 1, 256, 1023, StateMapType::BitHistory}, mask((1 << bitsOfContext) - 1),
-  maskBits(bitsOfContext), stride((1 << inputBits) - 1), bTotal(inputBits), scale(scale) {
+static void IndirectMap_update(IPredictor* const predictor) {
+  IndirectMap* const im = (IndirectMap*)predictor;
+  const Shared* const shared = im->shared;
+  INJECT_SHARED_y
+  StateTable_update(im->cp, y, &im->rnd);
+  im->b += (uint32_t)((y != 0) && im->b > 0);
+}
+
+void IndirectMap_init(IndirectMap* const im, const Shared* const sh, const int bitsOfContext, const int inputBits, const int scale, const int limit) {
+  (void)limit;
+  im->predictor.update = IndirectMap_update;
+  im->shared = sh;
+  Random_init(&im->rnd);
+  im->data = ARRAY_NEW(uint8_t, (UINT64_C(1) << bitsOfContext) * ((UINT64_C(1) << inputBits) - 1));
+  StateMap_init(&im->sm, sh, 1, 256, 1023, STATEMAP_BITHISTORY);
+  im->mask = (1 << bitsOfContext) - 1;
+  im->maskBits = bitsOfContext;
+  im->stride = (1 << inputBits) - 1;
+  im->bTotal = inputBits;
+  im->b = 0;
+  im->bCount = 0;
+  im->context = 0;
+  im->scale = scale;
   assert(inputBits > 0 && inputBits <= 8);
   assert(bitsOfContext + inputBits <= 24);
-  cp = nullptr;
-  setDirect(0);
+  im->cp = NULL;
+  IndirectMap_setDirect(im, 0);
 }
 
-void IndirectMap::setDirect(const uint32_t ctx) {
-  context = (ctx & mask) * stride;
-  bCount = b = 0;
+void IndirectMap_destroy(IndirectMap* const im) {
+  Array_delete(im->data);
+  im->data = NULL;
+  StateMap_destroy(&im->sm);
 }
 
-void IndirectMap::set(const uint64_t ctx) {
-  context = (finalize64(ctx, maskBits)) * stride;
-  bCount = b = 0;
+void IndirectMap_setDirect(IndirectMap* const im, const uint32_t ctx) {
+  im->context = (ctx & im->mask) * im->stride;
+  im->bCount = im->b = 0;
 }
 
-void IndirectMap::update() {
-  INJECT_SHARED_y
-  StateTable::update(cp, y, rnd);
-  b += static_cast<uint32_t>((y != 0) && b > 0);
+void IndirectMap_set(IndirectMap* const im, const uint64_t ctx) {
+  im->context = (finalize64(ctx, im->maskBits)) * im->stride;
+  im->bCount = im->b = 0;
 }
 
-void IndirectMap::setScale(const int Scale) { this->scale = Scale; }
+void IndirectMap_setScale(IndirectMap* const im, const int Scale) { im->scale = Scale; }
 
-void IndirectMap::mix(Mixer &m) {
-  shared->GetUpdateBroadcaster()->subscribe(this);
-  cp = &data[context + b];
-  const uint8_t state = *cp;
+void IndirectMap_mix(IndirectMap* const im, Mixer* const m) {
+  UpdateBroadcaster_subscribe(Shared_getUpdateBroadcaster(im->shared), &im->predictor);
+  im->cp = &im->data[im->context + im->b];
+  const uint8_t state = *im->cp;
   if (state == 0) {
-    m.add(0);
-    m.add(0);
+    Mixer_add(m, 0);
+    Mixer_add(m, 0);
   }
   else {
-    const int p1 = sm.p1(state);
-    m.add((stretch(p1) * scale) >> 8);
-    m.add(((p1 - 2048) * scale) >> 9);
+    const int p1 = StateMap_p1(&im->sm, state);
+    Mixer_add(m, (stretch(p1) * im->scale) >> 8);
+    Mixer_add(m, ((p1 - 2048) * im->scale) >> 9);
   }
-  bCount++;
-  b += b + 1;
-  assert(bCount <= bTotal);
+  im->bCount++;
+  im->b += im->b + 1;
+  assert(im->bCount <= im->bTotal);
 }

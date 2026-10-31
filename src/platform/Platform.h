@@ -2,16 +2,16 @@
 
 // The libc-free stub: what the operating system has to provide.
 //
-// The libc-free stub is linked without the C and C++ runtime libraries. The
+// The libc-free stub is linked without the C runtime library. The
 // rest of the program still calls the usual C functions (fopen, malloc,
 // memcpy, ...), so this folder supplies them:
 //
-//   CRuntime.cpp           the C functions themselves, written once for every
+//   CRuntime.c             the C functions themselves, written once for every
 //                          operating system, using only the functions below
-//   Platform_Linux.cpp     the functions below as Linux system calls
-//   Platform_Windows.cpp   the functions below as kernel32.dll calls
+//   Platform_Linux.c       the functions below as Linux system calls
+//   Platform_Windows.c     the functions below as kernel32.dll calls
 //
-// Each Platform_*.cpp also holds the program's entry point and the few C
+// Each Platform_*.c also holds the program's entry point and the few C
 // functions that exist on that operating system only.
 //
 // These files are compiled into the libc-free stub only (-DSFX
@@ -19,14 +19,19 @@
 
 #if defined(SFX) && defined(SFX_FREESTANDING)
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-extern "C" {
+#if defined(_MSC_VER)
+#define PLAT_NORETURN __declspec(noreturn)
+#else
+#define PLAT_NORETURN __attribute__((noreturn))
+#endif
 
 // An open file: a file descriptor on Linux, a HANDLE on Windows.
 typedef intptr_t plat_file;
-const plat_file PLAT_NO_FILE = -1;
+#define PLAT_NO_FILE ((plat_file)-1)
 
 // Opens a file; the path is UTF-8.
 //   create = false: the file must exist; it is opened for reading
@@ -50,8 +55,6 @@ void* plat_alloc(size_t size);
 void  plat_free (void* memory, size_t size);
 
 // Ends the program.
-[[noreturn]] void plat_exit(int exitCode);
-
-} // extern "C"
+PLAT_NORETURN void plat_exit(int exitCode);
 
 #endif

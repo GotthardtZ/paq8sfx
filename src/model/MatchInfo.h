@@ -1,24 +1,22 @@
 ﻿#pragma once
 
-#include "../Shared.hpp"
-#include "../ContextMap2.hpp"
-#include "../HashElementForMatchPositions.hpp"
+#include "../Shared.h"
 
-struct MatchInfo {
-  uint32_t length = 0;
-  uint32_t index = 0;
-  uint32_t lengthBak = 0;
-  uint32_t indexBak = 0;
-  uint8_t expectedByte = 0;
-  bool delta = false;
+typedef struct MatchInfo {
+  uint32_t length;
+  uint32_t index;
+  uint32_t lengthBak;
+  uint32_t indexBak;
+  uint8_t expectedByte;
+  bool delta;
+} MatchInfo;
 
-  bool isInNoMatchMode() const;
-  bool isInPreRecoveryMode() const;
-  bool isInRecoveryMode() const;
-  uint32_t recoveryModePos() const;
-  uint64_t prio() const;
-  bool isBetterThan(const MatchInfo* other) const;
+bool MatchInfo_isInNoMatchMode(const MatchInfo* mi);
+bool MatchInfo_isInPreRecoveryMode(const MatchInfo* mi);
+bool MatchInfo_isInRecoveryMode(const MatchInfo* mi);
+uint32_t MatchInfo_recoveryModePos(const MatchInfo* mi);
+uint64_t MatchInfo_prio(const MatchInfo* mi);
+bool MatchInfo_isBetterThan(const MatchInfo* mi, const MatchInfo* other);
 
-  void update(Shared* shared, uint32_t minlen_rm);
-  void registerMatch(uint32_t pos, uint32_t LEN, uint32_t LEN1);
-};
+void MatchInfo_update(MatchInfo* mi, const Shared* shared, uint32_t minlen_rm);
+void MatchInfo_registerMatch(MatchInfo* mi, uint32_t pos, uint32_t LEN, uint32_t LEN1);

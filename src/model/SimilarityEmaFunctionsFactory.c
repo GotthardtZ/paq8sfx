@@ -1,21 +1,22 @@
-﻿#include "SimilarityEmaFunctionsFactory.hpp"
+﻿#include "SimilarityEmaFunctionsFactory.h"
 
-SimilarityEmaUpdateFunction SimilarityEmaFunctionsFactory::getEmaUpdateFunction(const Shared* const shared) {
+SimilarityEmaUpdateFunction SimilarityEmaFunctionsFactory_getEmaUpdateFunction(const Shared* const shared) {
 #if !defined(AVX2_ONLY)
 
 #ifdef X64_SIMD_AVAILABLE
   const SIMDType chosenSimd = shared->chosenSimd;
-  if (chosenSimd >= SIMDType::SIMD_AVX2) {
-    return &SimilarityEmaFunctions_AVX2::update_and_find;
+  if (chosenSimd >= SIMD_AVX2) {
+    return &SimilarityEmaFunctions_AVX2_update_and_find;
   }
-  else if (chosenSimd >= SIMDType::SIMD_SSE41) {
-    return &SimilarityEmaFunctions_SSE41::update_and_find;
+  else if (chosenSimd >= SIMD_SSE41) {
+    return &SimilarityEmaFunctions_SSE41_update_and_find;
   }
 #endif
-  return &SimilarityEmaFunctions_Scalar::update_and_find;
+  return &SimilarityEmaFunctions_Scalar_update_and_find;
 
 #else
-  return &SimilarityEmaFunctions_AVX2::update_and_find;
+  (void)shared;
+  return &SimilarityEmaFunctions_AVX2_update_and_find;
 #endif
 
 }

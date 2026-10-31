@@ -1,52 +1,95 @@
-﻿#include "Clz.hpp"
-#include "ResidualMap.hpp"
+﻿#include "Clz.h"
+#include "Array.h"
+#include "ResidualMap.h"
 
-ResidualMap::ResidualMap(const Shared* const sh, const int numContexts, const int histogramsPerContext, const int scale) :
-  shared(sh),
-  scale(scale),
-  numContexts(numContexts),
-  histogramsPerContext(histogramsPerContext),
-  currentContextIndex(0),
-  predictions(numContexts),
-  bases(numContexts),
-  sums(BINS* numContexts* histogramsPerContext) {
-  dt = DivisionTable::getDT();
+#define BINS ResidualMap_BINS
+
+static void ResidualMap_update(IPredictor* const predictor) {
+  ResidualMap* const rm = (ResidualMap*)predictor;
+  const Shared* const shared = rm->shared;
+  assert(shared->State.bitPosition == 0);
+  assert(rm->currentContextIndex == rm->numContexts);
+
+  while (rm->currentContextIndex > 0) {
+    rm->currentContextIndex--;
+    const uint32_t base = rm->bases[rm->currentContextIndex];
+    if (base == UINT32_MAX)
+      continue;
+
+    INJECT_SHARED_c1
+    const int bin = (192 + c1 - rm->predictions[rm->currentContextIndex]) & 255; // moving the center to bin #192 gives better cache locality on read and on updates
+
+    // Increment all prefix entries after bin: sums[bin .. BINS-1] += 1.
+    uint16_t* s = &rm->sums[base];
+    for (int k = bin; k < BINS; k++)
+      s[k]++;
+
+    // Aging: when the total reaches UINT16_MAX halve all prefix entries.
+    // A bin's count is s[k]-s[k-1] (s[-1] treated as 0); total is s[BINS-1].
+    if (s[BINS - 1] == UINT16_MAX) {
+      for (int k = 0; k < BINS; k++)
+        s[k] >>= 1;
+    }
+  }
 }
 
-void ResidualMap::setscale(const int scale) {
-  this->scale = scale;
+void ResidualMap_init(ResidualMap* const rm, const Shared* const sh, const int numContexts, const int histogramsPerContext, const int scale) {
+  rm->predictor.update = ResidualMap_update;
+  rm->shared = sh;
+  rm->scale = scale;
+  rm->numContexts = numContexts;
+  rm->histogramsPerContext = histogramsPerContext;
+  rm->currentContextIndex = 0;
+  rm->predictions = ARRAY_NEW(short, numContexts);
+  rm->bases = ARRAY_NEW(uint32_t, numContexts);
+  rm->sums = ARRAY_NEW(uint16_t, BINS * numContexts * histogramsPerContext);
+  rm->dt = DivisionTable_getDT();
 }
 
-void ResidualMap::set(const short prediction, const uint32_t histogram_id) {
-  assert(histogram_id < histogramsPerContext);
-  assert(currentContextIndex < numContexts);
-  predictions[currentContextIndex] = prediction;
-  bases[currentContextIndex] = (currentContextIndex * histogramsPerContext + histogram_id) * BINS;
-  currentContextIndex++;
+void ResidualMap_destroy(ResidualMap* const rm) {
+  Array_delete(rm->predictions);
+  Array_delete(rm->bases);
+  Array_delete(rm->sums);
+  rm->predictions = NULL;
+  rm->bases = NULL;
+  rm->sums = NULL;
 }
 
-void ResidualMap::skip() {
-  assert(currentContextIndex < numContexts);
-  bases[currentContextIndex] = UINT32_MAX;
-  currentContextIndex++;
+void ResidualMap_setscale(ResidualMap* const rm, const int scale) {
+  rm->scale = scale;
 }
 
-void ResidualMap::mix(Mixer& m) {
+void ResidualMap_set(ResidualMap* const rm, const short prediction, const uint32_t histogram_id) {
+  assert(histogram_id < rm->histogramsPerContext);
+  assert(rm->currentContextIndex < rm->numContexts);
+  rm->predictions[rm->currentContextIndex] = prediction;
+  rm->bases[rm->currentContextIndex] = (rm->currentContextIndex * rm->histogramsPerContext + histogram_id) * BINS;
+  rm->currentContextIndex++;
+}
+
+void ResidualMap_skip(ResidualMap* const rm) {
+  assert(rm->currentContextIndex < rm->numContexts);
+  rm->bases[rm->currentContextIndex] = UINT32_MAX;
+  rm->currentContextIndex++;
+}
+
+void ResidualMap_mix(ResidualMap* const rm, Mixer* const m) {
+  const Shared* const shared = rm->shared;
   INJECT_SHARED_bpos
   INJECT_SHARED_c0
   if (bpos == 7)
-    shared->GetUpdateBroadcaster()->subscribe(this);
-  assert(currentContextIndex == numContexts);
+    UpdateBroadcaster_subscribe(Shared_getUpdateBroadcaster(shared), &rm->predictor);
+  assert(rm->currentContextIndex == rm->numContexts);
 
-  for (size_t i = 0; i < currentContextIndex; i++) {
-    const uint32_t base = bases[i];
+  for (size_t i = 0; i < rm->currentContextIndex; i++) {
+    const uint32_t base = rm->bases[i];
     if (base == UINT32_MAX) { // skipped context
-      m.add(0);
-      m.add(0);
+      Mixer_add(m, 0);
+      Mixer_add(m, 0);
       continue;
     }
 
-    const uint16_t* s = &sums[base];
+    const uint16_t* s = &rm->sums[base];
     const uint8_t  c1 = c0 << (8 - bpos);
     const int range = 1 << (7 - bpos);  // 128 down to 1
 
@@ -57,7 +100,7 @@ void ResidualMap::mix(Mixer& m) {
     // boundary cases:
     //   a==0 → s[a-1] treated as 0.
     //   offset+range == BINS is the exact-fit case: s[BINS-1] is the last valid entry, no wrap needed.
-    const int bin0_offset = (192 + c1 - predictions[i]) & 255;
+    const int bin0_offset = (192 + c1 - rm->predictions[i]) & 255;
     const int bin1_offset = (bin0_offset + range) & 255;
 
     // n0: observation count in the "next bit = 0" residual window (lower half)
@@ -99,44 +142,17 @@ void ResidualMap::mix(Mixer& m) {
     const size_t sum_small = raw_sum >> shift;  // [0..1023]
     n1 = (n1 >> shift) + 1;
 
-    const int p1 = (int)(((n1 << 12) * (uint64_t)dt[sum_small]) >> 30); //4096 * (n1+1) / (n0+n1+2)
+    const int p1 = (int)(((n1 << 12) * (uint64_t)rm->dt[sum_small]) >> 30); //4096 * (n1+1) / (n0+n1+2)
 
-    m.add((stretch(p1) * scale) >> 8);
-    m.add(((p1 - 2048) * scale) >> 9);
+    Mixer_add(m, (stretch(p1) * rm->scale) >> 8);
+    Mixer_add(m, ((p1 - 2048) * rm->scale) >> 9);
   }
 }
 
-void ResidualMap::update() {
-  assert(shared->State.bitPosition == 0);
-  assert(currentContextIndex == numContexts);
-
-  while (currentContextIndex > 0) {
-    currentContextIndex--;
-    const uint32_t base = bases[currentContextIndex];
-    if (base == UINT32_MAX)
-      continue;
-
-    INJECT_SHARED_c1
-    const int bin = (192 + c1 - predictions[currentContextIndex]) & 255; // moving the center to bin #192 gives better cache locality on read and on updates
-
-    // Increment all prefix entries after bin: sums[bin .. BINS-1] += 1.
-    uint16_t* s = &sums[base];
-    for (int k = bin; k < BINS; k++)
-      s[k]++;
-
-    // Aging: when the total reaches UINT16_MAX halve all prefix entries.
-    // A bin's count is s[k]-s[k-1] (s[-1] treated as 0); total is s[BINS-1].
-    if (s[BINS - 1] == UINT16_MAX) {
-      for (int k = 0; k < BINS; k++)
-        s[k] >>= 1;
-    }
-  }
-}
-
-void ResidualMap::print() {
-  for (size_t i = 0; i < numContexts; i++) {
-    for (size_t j = 0; j < histogramsPerContext; j++) {
-      const uint16_t* s = &sums[(i * histogramsPerContext + j) * BINS];
+void ResidualMap_print(const ResidualMap* const rm) {
+  for (size_t i = 0; i < rm->numContexts; i++) {
+    for (size_t j = 0; j < rm->histogramsPerContext; j++) {
+      const uint16_t* s = &rm->sums[(i * rm->histogramsPerContext + j) * BINS];
       printf("%zu\t%zu", i, j);
       for (int k = 0; k < BINS; k++)
         printf("\t%d", k == 0 ? s[0] : s[k] - s[k - 1]);

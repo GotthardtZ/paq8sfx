@@ -1,5 +1,5 @@
-﻿#include "ChartModel.hpp"
-#include "../BlockType.hpp"
+﻿#include "ChartModel.h"
+#include "../BlockType.h"
 
 ///////////////////////////// chartModel ////////////////////////////
 
@@ -7,12 +7,19 @@
 // the context which consists of selected bits from the last 3 bytes.
 // Note: some of the (indirect) contexts below are independent from the chart model 
 
-ChartModel::ChartModel(const Shared* const sh, const uint64_t size) : shared(sh),
-  cm(sh, size, nCM, 64)
-{}
+void ChartModel_init(ChartModel* const cmodel, const Shared* const sh, const uint64_t size) {
+  memset(cmodel, 0, sizeof(ChartModel));
+  cmodel->shared = sh;
+  ContextMap2_init(&cmodel->cm, sh, size, ChartModel_nCM, 64);
+}
 
+void ChartModel_destroy(ChartModel* const cmodel) {
+  ContextMap2_destroy(&cmodel->cm);
+}
 
-void ChartModel::mix(Mixer& m) {
+void ChartModel_mix(ChartModel* const cmodel, Mixer* const m) {
+  const Shared* const shared = cmodel->shared;
+  ContextMap2* const cm = &cmodel->cm;
   INJECT_SHARED_bpos
   if (bpos == 0) {
     
@@ -57,27 +64,27 @@ void ChartModel::mix(Mixer& m) {
 
     for (int i = 0; i < 3; i++) {
       uint32_t f = i << 9 | b[i];
-      const uint8_t g = indirect1[i << 9 | d[i]]; // context from indirect
-      indirect1[f] = c1; // update indirect
-      cm.set(hash(++h, g)); 
-      cm.set(hash(++h, w2 | g));
-      cm.set(hash(++h, w3 | g));
-      cm.set(hash(++h, w4 | g));
+      const uint8_t g = cmodel->indirect1[i << 9 | d[i]]; // context from indirect
+      cmodel->indirect1[f] = c1; // update indirect
+      ContextMap2_set(cm, hash2(++h, g)); 
+      ContextMap2_set(cm, hash2(++h, w2 | g));
+      ContextMap2_set(cm, hash2(++h, w3 | g));
+      ContextMap2_set(cm, hash2(++h, w4 | g));
     }
 
     const uint8_t buf2 = (c4 >> 8) & 0xff;
     const uint8_t buf3 = (c4 >> 16) & 0xff;
 
     //sparse indirect 1-byte contexts
-    uint8_t g = indirect2[c1]; // context from indirect
-    indirect2[buf2] = c1; // update indirect
-    cm.set(hash(++h, w4 | g));
+    uint8_t g = cmodel->indirect2[c1]; // context from indirect
+    cmodel->indirect2[buf2] = c1; // update indirect
+    ContextMap2_set(cm, hash2(++h, w4 | g));
 
     //sparse indirect 2-byte contexts
-    g = indirect3[buf2 << 8 | c1]; // context from indirect
-    indirect3[buf3 << 8 | buf2] = c1; // update indirect
-    cm.set(hash(++h, w4 | g));
-    cm.set(hash(++h, w3 | g));
+    g = cmodel->indirect3[buf2 << 8 | c1]; // context from indirect
+    cmodel->indirect3[buf3 << 8 | buf2] = c1; // update indirect
+    ContextMap2_set(cm, hash2(++h, w4 | g));
+    ContextMap2_set(cm, hash2(++h, w3 | g));
 
     uint32_t
       a[3] = { // content: 3 selected bits of 3 consecutive bytes that is
@@ -90,7 +97,7 @@ void ChartModel::mix(Mixer& m) {
     //update chart
     for (uint32_t i = 0; i < cnt; i++) {
       uint32_t e = a[i];
-      chart[i << 3 | ((e >> 8) & 7)] = w0;
+      cmodel->chart[i << 3 | ((e >> 8) & 7)] = w0;
     }
 
     cnt *= 8; // the chart has 8+8+8 slots: for text blocks we use only the first 8, for binary blocks we use all the 24 
@@ -99,15 +106,15 @@ void ChartModel::mix(Mixer& m) {
     for (uint32_t i = 0; i < cnt; i++) {
       uint32_t s = i >> 3;   // selector: which bits are selected: s: 0 for text; 0..2 for binary
       uint32_t e = a[s];     // content: 3 selected bits from 3 consecutive bytes
-      uint32_t k = chart[i]; // i: text: 0..7; binary: 0..23
+      uint32_t k = cmodel->chart[i]; // i: text: 0..7; binary: 0..23
                                                               //   k   e
-      cm.set(hash(++h, k));                               //  111 000
-      cm.set(hash(++h, e, k & 0xffff));                   //  011 111
-      cm.set(hash(++h, (e & 7) << 8 | (k & 0xff00ff)));   //  101 001
+      ContextMap2_set(cm, hash2(++h, k));                               //  111 000
+      ContextMap2_set(cm, hash3(++h, e, k & 0xffff));                   //  011 111
+      ContextMap2_set(cm, hash2(++h, (e & 7) << 8 | (k & 0xff00ff)));   //  101 001
     }
 
-    assert((int)h == nCM);
+    assert((int)h == ChartModel_nCM);
   }
   
-  cm.mix(m);
+  ContextMap2_mix(cm, m);
 }

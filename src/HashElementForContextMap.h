@@ -1,9 +1,8 @@
 ﻿#pragma once
 
-#include <cstdint>
-#include "StateTable.hpp"
+#include "StateTable.h"
 
-struct HashElementForContextMap {
+typedef struct HashElementForContextMap {
   union {
 
     uint8_t states[7];
@@ -31,12 +30,11 @@ struct HashElementForContextMap {
     } slot1and2;
   
   };
+} HashElementForContextMap;
 
-  // priority for hash replacement strategy
-  uint8_t prio() {
-    return StateTable::prio(priority);
-  }
-};
+_Static_assert(sizeof(HashElementForContextMap) == 7, "HashElementForContextMap must be 7 bytes");
 
-static_assert (sizeof(HashElementForContextMap) == 7);
-
+// priority for hash replacement strategy
+static inline uint8_t HashElementForContextMap_prio(const HashElementForContextMap* const e) {
+  return StateTable_prio(e->priority);
+}

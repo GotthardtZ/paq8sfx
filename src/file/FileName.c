@@ -1,31 +1,28 @@
-#include "FileName.hpp"
+﻿#include "FileName.h"
 
-FileName::FileName(const char *s) : String(s) {}
-
-int FileName::lastSlashPos() const {
-  int pos = findLast('/');
+int FileName_lastSlashPos(const FileName* const name) {
+  int pos = String_findLast(name, '/');
   if( pos < 0 ) {
-    pos = findLast('\\');
+    pos = String_findLast(name, '\\');
   }
   return pos; //has no path when -1
 }
 
-void FileName::keepFilename() {
-  const int pos = lastSlashPos();
-  stripStart(pos + 1); //don't keep last slash
+void FileName_keepFilename(FileName* const name) {
+  const int pos = FileName_lastSlashPos(name);
+  String_stripStart(name, pos + 1); //don't keep last slash
 }
 
-void FileName::keepPath() {
-  const int pos = lastSlashPos();
-  stripEnd(strsize() - pos - 1); //keep last slash
+void FileName_keepPath(FileName* const name) {
+  const int pos = FileName_lastSlashPos(name);
+  String_stripEnd(name, String_strsize(name) - pos - 1); //keep last slash
 }
 
-void FileName::replaceSlashes() { //
-  const uint64_t sSize = strsize();
+void FileName_replaceSlashes(FileName* const name) { //
+  const uint64_t sSize = String_strsize(name);
   for( uint64_t i = 0; i < sSize; i++ ) {
-    if((*this)[i] == BADSLASH ) {
-      (*this)[i] = GOODSLASH;
+    if(name->data[i] == BADSLASH ) {
+      name->data[i] = GOODSLASH;
     }
   }
-  chk_consistency();
 }

@@ -1,23 +1,25 @@
 ﻿#pragma once
 
-#include "../ContextMap2.hpp"
-#include "../Shared.hpp"
-#include <cstdint>
+#include "../ContextMap2.h"
+#include "../Shared.h"
 
-class ChartModel {
-private:
-  static constexpr int nCM = (3 * 4) + 3 + (8 + 8 + 8) * 3; //87
-    const Shared * const shared;
-    ContextMap2 cm;
-    uint32_t chart[3*8]{};
-    uint32_t charGroup{};
-    uint8_t indirect1[1024+64]{};
-    uint8_t indirect2[256]{};
-    uint8_t indirect3[256 * 256]{};
-public:
-    static constexpr int MIXERINPUTS = nCM * (ContextMap2::MIXERINPUTS); // 348
-    static constexpr int MIXERCONTEXTS = 0;
-    static constexpr int MIXERCONTEXTSETS = 0;
-    explicit ChartModel(const Shared* const sh, const uint64_t size);
-    void mix(Mixer &m);
+enum {
+  ChartModel_nCM = (3 * 4) + 3 + (8 + 8 + 8) * 3, //87
+  ChartModel_MIXERINPUTS = ChartModel_nCM * (ContextMap2_MIXERINPUTS), // 348
+  ChartModel_MIXERCONTEXTS = 0,
+  ChartModel_MIXERCONTEXTSETS = 0
 };
+
+typedef struct ChartModel {
+  const Shared* shared;
+  ContextMap2 cm;
+  uint32_t chart[3*8];
+  uint32_t charGroup;
+  uint8_t indirect1[1024+64];
+  uint8_t indirect2[256];
+  uint8_t indirect3[256 * 256];
+} ChartModel;
+
+void ChartModel_init(ChartModel* cmodel, const Shared* sh, uint64_t size);
+void ChartModel_destroy(ChartModel* cmodel);
+void ChartModel_mix(ChartModel* cmodel, Mixer* m);

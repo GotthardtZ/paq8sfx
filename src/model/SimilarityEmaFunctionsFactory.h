@@ -1,18 +1,16 @@
 ﻿#pragma once
 
-#include <cstdint>
-#include <cstddef>
-#include "../Shared.hpp"
-#include "SimilarityEmaFunctions_Scalar.hpp"
+#include "../Shared.h"
+#include "SimilarityEmaFunctions_Scalar.h"
 #ifdef X64_SIMD_AVAILABLE
-#include "SimilarityEmaFunctions_SSE41.hpp"
-#include "SimilarityEmaFunctions_AVX2.hpp"
+#include "SimilarityEmaFunctions_SSE41.h"
+#include "SimilarityEmaFunctions_AVX2.h"
 #endif
 
 // Function pointer type for the steady-state EMA update path (contiguous block, no ring-buffer wrap).
 // Updates ema_buf1 and ema_buf2 in-place (8.8 fixed-point uint16_t values),
 // and writes the top-2 lowest-score indices and scores into match_index/match_score.
-using SimilarityEmaUpdateFunction = void(*)(
+typedef void (*SimilarityEmaUpdateFunction)(
   uint16_t* ema_buf1,       // 8.8 fixed-point EMA buffer for slow model; length = count
   uint16_t* ema_buf2,       // 8.8 fixed-point EMA buffer for fast model; length = count
   const uint8_t* history_buffer_ptr, // contiguous history block, length = count (no wrap)
@@ -26,11 +24,6 @@ using SimilarityEmaUpdateFunction = void(*)(
   uint32_t* match_score2);  // [out] top-2 ema_buf2 scores  (best, second-best)
 
 /**
- * Factory for selecting the best available EMA update function at runtime.
+ * Selects the best available EMA update function at runtime.
  */
-
-class SimilarityEmaFunctionsFactory
-{
-public:
-  static SimilarityEmaUpdateFunction getEmaUpdateFunction(const Shared* shared);
-};
+SimilarityEmaUpdateFunction SimilarityEmaFunctionsFactory_getEmaUpdateFunction(const Shared* shared);

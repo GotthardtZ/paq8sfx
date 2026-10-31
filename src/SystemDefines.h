@@ -54,10 +54,7 @@
 
 #if defined(__x86_64__) || defined(_M_X64)
 #define X64_SIMD_AVAILABLE
-constexpr bool IS_X64_SIMD_AVAILABLE = true;
 #include <immintrin.h> // AVX2
-#else
-constexpr bool IS_X64_SIMD_AVAILABLE = false;
 #endif
 
 
@@ -72,7 +69,7 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 // MSVC: Verify we're in a safe floating-point mode
 #if defined(_MSC_VER)
 #if !defined(_M_FP_PRECISE) && !defined(_M_FP_STRICT)
-#warning MSVC floating-point mode unclear. Ensure /fp:precise or /fp:strict is set
+#pragma message("MSVC floating-point mode unclear. Ensure /fp:precise or /fp:strict is set")
 #endif
 #endif
 
@@ -86,6 +83,21 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 #define ASSUME(cond) assert(cond)
 #endif
 
+// A function that does not return
+#if defined(_MSC_VER)
+#define NORETURN __declspec(noreturn)
+#else
+#define NORETURN __attribute__((noreturn))
+#endif
+
+// Lets a function use instructions of a newer instruction set than the rest
+// of the program (gcc, clang). MSVC needs no such marking.
+#if defined(__GNUC__) || defined(__clang__)
+#define TARGET(isa) __attribute__((target(isa)))
+#else
+#define TARGET(isa)
+#endif
+
 
 //////////////////////// Includes //////////////////////////////////////////
 
@@ -96,23 +108,30 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 #include <windows.h>   //CreateDirectoryW, GetModuleFileNameW, MultiByteToWideChar, DWORD, MAX_PATH, CP_UTF8, etc.
 #endif
 
-#include <cstdint>
-#include <cassert>
-#include <algorithm>
-#include <cstdio>
-#include <cstdlib> //exit()
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h> //exit()
+#include <string.h> //strlen(), strcspn(), strerror(), memset(), memcpy(), memmove()
+#include <errno.h>  //errno
 // Determining the proper printf() format specifier for 64 bit unsigned integers:
 // - on Windows MSVC and MinGW-w64 use the MSVCRT runtime where it is "%I64u"
 // - on Linux it is "%llu"
 // The correct value is provided by the PRIu64 macro which is defined here:
-#include <cinttypes> //PRIu64
+#include <inttypes.h> //PRIu64
 
 #ifdef UNIX
-#include <cerrno>  //errno
-#include <climits> //PATH_MAX (for OSX)
-#include <cstring> //strlen(), strcspn(), strerror(), memset(), memcpy(), memmove()
+#include <limits.h> //PATH_MAX (for OSX)
 #include <unistd.h> //execv()
 #endif
+
+// Some C libraries define min() and max() as macros (Windows headers without
+// NOMINMAX, the MinGW-w64 and Microsoft <stdlib.h>). This program has its own
+// min() and max() functions, see Utils.h.
+#undef min
+#undef max
 
 
 //////////////////////// Differences between C libraries ///////////////////
@@ -131,7 +150,7 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 #ifdef SFX_FREESTANDING
 // The libc-free stub has no console output. These macros remove every
 // printf(), fprintf() and fflush() call from it; their arguments are not
-// evaluated. (Defined after <cstdio>, so the declarations are not affected.)
+// evaluated. (Defined after <stdio.h>, so the declarations are not affected.)
 #define printf(...)  ((void)0)
 #define fprintf(...) ((void)0)
 #define fflush(...)  ((void)0)
@@ -142,8 +161,8 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 
 #ifdef FULL
 // Print the message (if any) and exit
-[[noreturn]] static void quit(const char* const message = nullptr) {
-  if (message != nullptr) {
+NORETURN static inline void quit(const char* const message) {
+  if (message != NULL) {
     printf("\n%s", message);
   }
   printf("\n");
@@ -151,7 +170,8 @@ constexpr bool IS_X64_SIMD_AVAILABLE = false;
 }
 #else
 // The stub exits silently
-[[noreturn]] static void quit(const char* const /*message*/ = nullptr) {
+NORETURN static inline void quit(const char* const message) {
+  (void)message;
   exit(1);
 }
 #endif

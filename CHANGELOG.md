@@ -33,7 +33,7 @@ paq8sfx_v1 by Zoltán Gotthardt
 - Added roundtrip test scripts for Windows and Linux; they detect and report crashes of the tested programs
 - Added documentation: README.md, test/README.md
 
-paq8sfx_v1 by Zoltán Gotthardt
+paq8sfx_v2 by Zoltán Gotthardt
 2026.10.08
 - New: the libc-free stub (stub-free): the stub without the C/C++ runtime libraries
   - Linux x64: static executable, calls the kernel directly;
@@ -58,3 +58,13 @@ paq8sfx_v1 by Zoltán Gotthardt
 - Visual Studio: the stub configurations don't define AVX2_ONLY
 - paq8sfx.exe is always built statically on Windows (no dependencies)
 
+paq8sfx_v2 by Zoltán Gotthardt
+2026.10.31
+- The source is now C (C11) instead of C++17
+  - Every paq8px class is a C struct with its functions in the file of the same name
+    (StateMap.c: StateMap_init(), StateMap_p1(), ...); virtual functions are function pointers
+  - The archive format is unchanged
+- Fewer run-time dependencies: the normal Linux stub needs only the C library (no libstdc++/libm),
+  the MinGW-w64 builds need no GCC runtime DLLs
+- Smaller stubs, e.g. the libc-free Linux stub (gcc 13.3) after UPX 5.2.0: 25'840 -> 24'828 bytes
+- Decreased memory use at levels -10, -11, -12

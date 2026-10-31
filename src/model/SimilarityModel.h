@@ -1,8 +1,7 @@
 ﻿#pragma once
 
-#include "../ResidualMap.hpp"
-#include "../ContextMap2.hpp"
-#include "SimilarityEmaFunctionsFactory.hpp"
+#include "../ResidualMap.h"
+#include "../ContextMap2.h"
 
 /**
  * Combined similarity-based match model and record model.
@@ -19,43 +18,40 @@
  * Best and second-best match periods and record periods are tracked by index into ema_buf[].
  */
 
-class SimilarityModel
-{
-private:
-  static constexpr int nRM1 = 16;  
-  static constexpr int nRM2 = 2;
-  static constexpr int nCM = 8;
+enum {
+  SimilarityModel_nRM1 = 16,
+  SimilarityModel_nRM2 = 2,
+  SimilarityModel_nCM = 8,
+  SimilarityModel_MIXERINPUTS =
+    (SimilarityModel_nRM1 + SimilarityModel_nRM2) * ResidualMap_MIXERINPUTS +
+    SimilarityModel_nCM * (ContextMap2_MIXERINPUTS), // 92
+  SimilarityModel_MIXERCONTEXTS = (3 * 32) + (3 * 2), // 102
+  SimilarityModel_MIXERCONTEXTSETS = 2
+};
 
-  Shared* const shared;
+typedef struct SimilarityModel {
+  Shared* shared;
   ResidualMap mapR1;
   ResidualMap mapR2;
   ContextMap2 cm;
  
-  uint32_t record_len = 1;    // best candidate period length (in bytes)
-  uint32_t record_score = 0;  // sum of EMA scores at 1x..4x record_len (lower = better)
-  uint16_t mctx1 = 0;         // mixer context
-  uint16_t mctx2 = 0;         // mixer context
-
-public:
-  static constexpr int MIXERINPUTS =
-    (nRM1 + nRM2) * ResidualMap::MIXERINPUTS +
-    nCM * (ContextMap2::MIXERINPUTS); // 92
-
-  static constexpr int MIXERCONTEXTS = (3 * 32) + (3 * 2); // 102
-  static constexpr int MIXERCONTEXTSETS = 2;
-
-  SimilarityModel(Shared* const sh, const uint64_t size, size_t max_match_distance, size_t max_record_length);
-  void reset();
-
-  void update(uint64_t warmup);
-  void mix(Mixer& m);
+  uint32_t record_len;    // best candidate period length (in bytes)
+  uint32_t record_score;  // sum of EMA scores at 1x..4x record_len (lower = better)
+  uint16_t mctx1;         // mixer context
+  uint16_t mctx2;         // mixer context
 
   // exposed public members for SimilarityModelPair
 
-  const size_t MAX_MATCH_DISTANCE; // typically 8192
-  const size_t MAX_RECORD_LENGTH;  // typically 1024 or 512
+  size_t MAX_MATCH_DISTANCE; // typically 8192
+  size_t MAX_RECORD_LENGTH;  // typically 1024 or 512
 
-  Array<uint16_t, 32> ema_buf;        // 8.8 fixed-point EMA of |x-pred| for each distance/period; size = MAX_MATCH_DISTANCE
-  uint32_t match_index[2] = { 0, 0 }; // ema_buf[] indices of the best and second-best match period
-  uint32_t match_score[2] = { 0, 0 }; // EMA scores (lower = better) for match_index[0] and [1]
-};
+  uint16_t* ema_buf;              // 8.8 fixed-point EMA of |x-pred| for each distance/period; size = MAX_MATCH_DISTANCE; 32-byte aligned
+  uint32_t match_index[2];        // ema_buf[] indices of the best and second-best match period
+  uint32_t match_score[2];        // EMA scores (lower = better) for match_index[0] and [1]
+} SimilarityModel;
+
+SimilarityModel* SimilarityModel_new(Shared* sh, uint64_t size, size_t max_match_distance, size_t max_record_length);
+void SimilarityModel_delete(SimilarityModel* sim);
+
+void SimilarityModel_update(SimilarityModel* sim, uint64_t warmup);
+void SimilarityModel_mix(SimilarityModel* sim, Mixer* m);

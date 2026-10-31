@@ -1,24 +1,25 @@
 ﻿#pragma once
 
-#include "../ContextMap2.hpp"
-#include "../Mixer.hpp"
-#include "../Shared.hpp"
-#include <cassert>
-#include <cstdint>
+#include "../ContextMap2.h"
+#include "../Mixer.h"
+#include "../Shared.h"
 
 /**
  * Model order 1-2-3 contexts with gaps.
  */
-class SparseModel {
-private:
-  static constexpr int nCM = 28 + 3;
-  const Shared * const shared;
-  ContextMap2 cm;
-  uint32_t ctx = 0;
-public:
-  static constexpr int MIXERINPUTS = nCM * (ContextMap2::MIXERINPUTS); // 217
-  static constexpr int MIXERCONTEXTS = 4 * 256;
-  static constexpr int MIXERCONTEXTSETS = 1;
-  explicit SparseModel(const Shared* const sh, uint64_t size);
-  void mix(Mixer &m);
+enum {
+  SparseModel_nCM = 28 + 3,
+  SparseModel_MIXERINPUTS = SparseModel_nCM * (ContextMap2_MIXERINPUTS), // 217
+  SparseModel_MIXERCONTEXTS = 4 * 256,
+  SparseModel_MIXERCONTEXTSETS = 1
 };
+
+typedef struct SparseModel {
+  const Shared* shared;
+  ContextMap2 cm;
+  uint32_t ctx;
+} SparseModel;
+
+void SparseModel_init(SparseModel* sm, const Shared* sh, uint64_t size);
+void SparseModel_destroy(SparseModel* sm);
+void SparseModel_mix(SparseModel* sm, Mixer* m);

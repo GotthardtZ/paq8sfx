@@ -1,16 +1,16 @@
-#include "Random.hpp"
-#include "Hash.hpp"
+﻿#include "Random.h"
+#include "Hash.h"
 
-Random::Random() {
-  _state = 0;
+void Random_init(Random* const rnd) {
+  rnd->_state = 0;
 }
 
 // This pseudo random number generator is a 
 // Mixed Congruential Generator with a period of 2^64
 // https://en.wikipedia.org/wiki/Linear_congruential_generator
 
-uint32_t Random::operator()(int numberOfBits) {
+uint32_t Random_next(Random* const rnd, const int numberOfBits) {
   assert(numberOfBits > 0 && numberOfBits <= 32);
-  _state = (_state + 1) * PHI64;
-  return static_cast<uint32_t>(_state >> (64 - numberOfBits));
+  rnd->_state = (rnd->_state + 1) * PHI64;
+  return (uint32_t)(rnd->_state >> (64 - numberOfBits));
 }

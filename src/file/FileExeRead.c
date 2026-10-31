@@ -1,51 +1,40 @@
-﻿#pragma once
-
-#include "../SystemDefines.hpp"
-#include <cstdlib>
+﻿#include "FileExeRead.h"
 
 #ifdef __APPLE__
 #  include <mach-o/dyld.h>
 #endif
 
-/**
- * The running executable file, loaded into memory.
- * The stub uses it to find the payload files that are attached to it.
- * Owns the buffer (malloc/free).
- */
-class FileExeRead {
-  static FILE* openMyself() {
+static FILE* openMyself(void) {
 #if defined(WINDOWS)
-    wchar_t path[MAX_PATH];
-    const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    if (length == 0 || length >= MAX_PATH) quit("Cannot determine exe path.");
-    return _wfopen(path, L"rb");
+  wchar_t path[MAX_PATH];
+  const DWORD length = GetModuleFileNameW(NULL, path, MAX_PATH);
+  if (length == 0 || length >= MAX_PATH) quit("Cannot determine exe path.");
+  return _wfopen(path, L"rb");
 #elif defined(__APPLE__)
-    char path[PATH_MAX];
-    uint32_t size = sizeof(path);
-    if (_NSGetExecutablePath(path, &size) != 0) quit("Cannot determine exe path.");
-    return fopen(path, "rb");
+  char path[PATH_MAX];
+  uint32_t size = sizeof(path);
+  if (_NSGetExecutablePath(path, &size) != 0) quit("Cannot determine exe path.");
+  return fopen(path, "rb");
 #else
-    return fopen("/proc/self/exe", "rb");  // Linux: always the running executable
+  return fopen("/proc/self/exe", "rb");  // Linux: always the running executable
 #endif
-  }
+}
 
-public:
-  uint8_t* buf;
-  uint64_t fileSize;
+void FileExeRead_init(FileExeRead* const self) {
+  self->buf = NULL;
+  self->fileSize = 0;
+  FILE* f = openMyself();
+  if (!f) quit("Cannot open exe.");
+  fseeko(f, 0, SEEK_END);
+  self->fileSize = (uint64_t)ftello(f);
+  self->buf = (uint8_t*)malloc((size_t)self->fileSize);
+  if (!self->buf) quit("Out of memory.");
+  fseeko(f, 0, SEEK_SET);
+  if (fread(self->buf, 1, (size_t)self->fileSize, f) != self->fileSize) quit("Cannot read exe.");
+  fclose(f);
+}
 
-  FileExeRead() : buf(nullptr), fileSize(0) {
-    FILE* f = openMyself();
-    if (!f) quit("Cannot open exe.");
-    fseeko(f, 0, SEEK_END);
-    fileSize = static_cast<uint64_t>(ftello(f));
-    buf = static_cast<uint8_t*>(malloc(fileSize));
-    if (!buf) quit("Out of memory.");
-    fseeko(f, 0, SEEK_SET);
-    if (fread(buf, 1, fileSize, f) != fileSize) quit("Cannot read exe.");
-    fclose(f);
-  }
-
-  ~FileExeRead() {
-    free(buf);
-  }
-};
+void FileExeRead_destroy(FileExeRead* const self) {
+  free(self->buf);
+  self->buf = NULL;
+}

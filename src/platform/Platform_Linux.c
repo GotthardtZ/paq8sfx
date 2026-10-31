@@ -2,12 +2,12 @@
 //
 // The stub talks to the Linux kernel directly, with system calls. This file
 // contains:
-//   - the plat_* functions of Platform.hpp
+//   - the plat_* functions of Platform.h
 //   - the C functions that only the Linux code of the stub calls
 //     (stat, mkdir, chmod, execv)
 //   - the entry point of the program
 
-#include "Platform.hpp"
+#include "Platform.h"
 
 #if defined(SFX) && defined(SFX_FREESTANDING) && defined(__linux__)
 
@@ -19,7 +19,7 @@
 // rax, its arguments in rdi, rsi, rdx, r10, r8 and r9, and the result comes
 // back in rax. The kernel overwrites rcx and r11.
 
-static inline long syscall3(long number, long a1 = 0, long a2 = 0, long a3 = 0) {
+static inline long syscall3(long number, long a1, long a2, long a3) {
   long result;
   __asm__ volatile("syscall"
                    : "=a"(result)
@@ -59,9 +59,8 @@ static long orMinusOne(long result) {
   return result;
 }
 
-extern "C" {
 
-// --------------------------------------------------------------- Platform.hpp
+// --------------------------------------------------------------- Platform.h
 
 plat_file plat_open(const char* path, bool create) {
   // The values of O_RDONLY, O_RDWR, O_CREAT and O_TRUNC.
@@ -71,7 +70,7 @@ plat_file plat_open(const char* path, bool create) {
 }
 
 void plat_close(plat_file file) {
-  syscall3(SYS_close, file);
+  syscall3(SYS_close, file, 0, 0);
 }
 
 int64_t plat_read(plat_file file, void* buffer, size_t count) {
@@ -90,38 +89,44 @@ void* plat_alloc(size_t size) {
   // The values of PROT_READ | PROT_WRITE and of MAP_PRIVATE | MAP_ANONYMOUS.
   const long READ_WRITE = 1 | 2, PRIVATE_MEMORY = 0x02 | 0x20;
   const long address = syscall6(SYS_mmap, 0, (long)size, READ_WRITE, PRIVATE_MEMORY, -1, 0);
-  return orMinusOne(address) == -1 ? nullptr : (void*)address;
+  return orMinusOne(address) == -1 ? NULL : (void*)address;
 }
 
 void plat_free(void* memory, size_t size) {
-  syscall3(SYS_munmap, (long)memory, (long)size);
+  syscall3(SYS_munmap, (long)memory, (long)size, 0);
 }
 
-[[noreturn]] void plat_exit(int exitCode) {
-  syscall3(SYS_exit_group, exitCode);
+PLAT_NORETURN void plat_exit(int exitCode) {
+  syscall3(SYS_exit_group, exitCode, 0, 0);
   __builtin_unreachable();
 }
 
 // ------------------------------------------------- C functions, Linux only --
 
 // "errno" is a macro for *__errno_location() in the C library headers.
-int* __errno_location() { return &lastError; }
+int* __errno_location(void) { return &lastError; }
 
 // "struct stat" has the layout the kernel uses, so it is passed on as it is.
 int stat(const char* path, struct stat* info) {
-  return (int)orMinusOne(syscall3(SYS_stat, (long)path, (long)info));
+  return (int)orMinusOne(syscall3(SYS_stat, (long)path, (long)info, 0));
 }
 
 int mkdir(const char* path, mode_t mode) {
-  return (int)orMinusOne(syscall3(SYS_mkdir, (long)path, mode));
+  return (int)orMinusOne(syscall3(SYS_mkdir, (long)path, mode, 0));
 }
 
 int chmod(const char* path, mode_t mode) {
-  return (int)orMinusOne(syscall3(SYS_chmod, (long)path, mode));
+  return (int)orMinusOne(syscall3(SYS_chmod, (long)path, mode, 0));
 }
 
 // The environment variables of this program; execv passes them on.
-char** environ = nullptr;
+//
+// environ is placed in .data on purpose. Without it the stub has no
+// initialised data at all, its writable segment holds only .bss, and ld gives
+// that segment a file offset inside the ELF headers. UPX (the usual way to
+// ship the stub) cannot pack such a file: "EOFException: premature end of
+// file". One 8-byte variable in .data avoids that:
+__attribute__((section(".data.environ"))) char** environ = NULL;
 
 int execv(const char* path, char* const argv[]) {
   return (int)orMinusOne(syscall3(SYS_execve, (long)path, (long)argv, (long)environ));
@@ -130,26 +135,20 @@ int execv(const char* path, char* const argv[]) {
 // ------------------------------------------------------------ entry point --
 // The kernel starts the program at _start, with the stack holding:
 //   argc, argv[0] .. argv[argc-1], null, envp[0] .. , null
-// _start (below) passes the address of argc to startStub, which runs the
-// constructors of the global objects, calls main and ends the program.
+// _start (below) passes the address of argc to startStub, which calls main
+// and ends the program. (A C program has no constructors of global objects
+// to run before main.)
 
 int main(int argc, char** argv);
 
-// The linker collects the constructors of the global objects in this table.
-extern void (*__init_array_start[])();
-extern void (*__init_array_end[])();
+PLAT_NORETURN void startStub(long* stack);
 
-[[noreturn]] void startStub(long* stack) {
+PLAT_NORETURN void startStub(long* stack) {
   const int argc = (int)stack[0];
   char** argv = (char**)(stack + 1);
   environ = argv + argc + 1;
-  for (void (**constructor)() = __init_array_start; constructor != __init_array_end; ++constructor) {
-    (*constructor)();
-  }
   plat_exit(main(argc, argv));
 }
-
-} // extern "C"
 
 __asm__(
   ".text\n"

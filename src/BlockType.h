@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-#include <type_traits>
+#include "SystemDefines.h"
 
-enum class BlockType {
-  DEFAULT = 0,
-  EXE,
-  Count
-};
+typedef enum BlockType {
+  BLOCKTYPE_DEFAULT = 0,
+  BLOCKTYPE_EXE,
+  BLOCKTYPE_COUNT
+} BlockType;
 
 
 bool hasInfo(BlockType ft);

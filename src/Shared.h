@@ -1,38 +1,35 @@
 ﻿#pragma once
 
-#include <cstdint>
-#include "BlockType.hpp"
-#include "RingBuffer.hpp"
-#include "SIMDType.hpp"
-#include "UpdateBroadcaster.hpp"
+#include "BlockType.h"
+#include "RingBuffer.h"
+#include "SIMDType.h"
+#include "UpdateBroadcaster.h"
 
 // helper #defines to access shared variables
-#define INJECT_SHARED_buf   const RingBuffer<uint8_t> &buf=shared->buf;
-#define INJECT_SHARED_pos   const uint32_t pos=shared->buf.getpos();
-#define INJECT_SHARED_y     const uint8_t  y=shared->State.y;
-#define INJECT_SHARED_c0    const uint8_t  c0=shared->State.c0;
-#define INJECT_SHARED_c1    const uint8_t  c1=shared->State.c1;
-#define INJECT_SHARED_bpos  const uint8_t  bpos=shared->State.bitPosition;
-#define INJECT_SHARED_c4    const uint32_t c4=shared->State.c4;
-#define INJECT_SHARED_c8    const uint32_t c8=shared->State.c8;
+#define INJECT_SHARED_buf   const RingBuffer* const buf = &shared->buf;
+#define INJECT_SHARED_pos   const uint32_t pos = RingBuffer_getpos(&shared->buf);
+#define INJECT_SHARED_y     const uint8_t  y = shared->State.y;
+#define INJECT_SHARED_c0    const uint8_t  c0 = shared->State.c0;
+#define INJECT_SHARED_c1    const uint8_t  c1 = shared->State.c1;
+#define INJECT_SHARED_bpos  const uint8_t  bpos = shared->State.bitPosition;
+#define INJECT_SHARED_c4    const uint32_t c4 = shared->State.c4;
+#define INJECT_SHARED_c8    const uint32_t c8 = shared->State.c8;
 
-#define INJECT_SHARED_blockType const BlockType blockType=shared->State.blockType;
-#define INJECT_SHARED_blockPos const uint32_t blockPos=shared->State.blockPos;
+#define INJECT_SHARED_blockType const BlockType blockType = shared->State.blockType;
+#define INJECT_SHARED_blockPos const uint32_t blockPos = shared->State.blockPos;
 
 /**
  * Shared information by all the models and some other classes.
  */
-struct Shared {
-private:
-  UpdateBroadcaster updateBroadcaster;
-public:
+typedef struct Shared {
+  UpdateBroadcaster updateBroadcaster; /**< use Shared_getUpdateBroadcaster() */
 
   //Shared state and statistics (global)
 
-  RingBuffer<uint8_t> buf; /**< Rotating input queue set by Predictor */
-  SIMDType chosenSimd = SIMDType::SIMD_NONE; /**< default value, will be overridden by the CPU dispatcher, and may be overridden from the command line */
-  uint8_t level = 0; /**< level=0: no compression (only transformations), level=1..12 compress using less..more RAM */
-  uint64_t mem = 0; /**< pre-calculated value of 65536 * 2^level */
+  RingBuffer buf; /**< Rotating input queue set by Predictor */
+  SIMDType chosenSimd; /**< set by the CPU dispatcher */
+  uint8_t level; /**< level=0: no compression (only transformations), level=1..12 compress using less..more RAM */
+  uint64_t mem; /**< pre-calculated value of 65536 * 2^level */
 
   struct {
 
@@ -40,14 +37,14 @@ public:
     // Global state, used by most models, updated after every bit by update(y)
     // 
 
-    uint8_t y = 0; /**< Last bit, 0 or 1 */
-    uint8_t c0 = 1; /**< Last 0-7 bits of the partial byte with a leading 1 bit (1-255) */
-    uint8_t c1 = 0; /**< Last whole byte, equals to c4&0xff or buf(1) */
-    uint8_t bitPosition = 0; /**< Bits in c0 (0 to 7), in other words the position of the bit to be predicted (0=MSB) */
-    uint32_t c4 = 0; /**< Last 4 whole bytes (buf(4)..buf(1)), packed.  Last byte is bits 0-7. */
-    uint32_t c8 = 0; /**< Another 4 bytes (buf(8)..buf(5)) */
-    uint32_t misses{}; //updated by the Predictor, used by SSE stage
-    uint32_t loss{};
+    uint8_t y; /**< Last bit, 0 or 1 */
+    uint8_t c0; /**< Last 0-7 bits of the partial byte with a leading 1 bit (1-255) */
+    uint8_t c1; /**< Last whole byte, equals to c4&0xff or buf(1) */
+    uint8_t bitPosition; /**< Bits in c0 (0 to 7), in other words the position of the bit to be predicted (0=MSB) */
+    uint32_t c4; /**< Last 4 whole bytes (buf(4)..buf(1)), packed.  Last byte is bits 0-7. */
+    uint32_t c8; /**< Another 4 bytes (buf(8)..buf(5)) */
+    uint32_t misses; //updated by the Predictor, used by SSE stage
+    uint32_t loss;
 
     //written by BlockModel, used by many models 
     //see PredictorMain, ContextModel
@@ -66,38 +63,41 @@ public:
       uint8_t mode3;        //used by SSE stage 
       uint8_t mode5;        //used by SSE stage 
       uint16_t expectedByte; //used by SSE stage and RecordModel; 0-256 where 256 = not valid
-    } Match{};
+    } Match;
 
     //NormalModel
     struct {
       uint8_t order; // 0-7
       uint64_t cxt[15]; // context hashes used by NormalModel and MatchModel
-    } NormalModel{};
+    } NormalModel;
 
     //ExeModel
     struct {
       uint8_t state; // used by SSE stage
     } x86_64;
 
-  } State{};
+  } State;
+} Shared;
 
-  Shared();
+/**
+ * Sets up a Shared for the given compression level (1..12): clears it,
+ * allocates the history buffer and selects the SIMD code path.
+ * Also builds the lookup tables used by the models (stretch, ilog).
+ */
+void Shared_init(Shared* shared, uint8_t level);
 
-  void init(uint8_t level);
-  void update(int y, uint32_t p, bool isMissed);
-  void reset();
-  UpdateBroadcaster *GetUpdateBroadcaster() const;
+/**
+ * Frees the history buffer.
+ */
+void Shared_destroy(Shared* shared);
 
-private:
+void Shared_update(Shared* shared, int y, uint32_t p, bool isMissed);
+void Shared_reset(Shared* shared);
 
-  /**
-    * Copy constructor is private so that it cannot be called
-    */
-  Shared(Shared const & /*unused*/) {}
-
-  /**
-    * Assignment operator is private so that it cannot be called
-    */
-  Shared& operator=(Shared const & /*unused*/) { return *this; }
-
-};
+/**
+ * Predictors subscribe through a const Shared, so the broadcaster is
+ * handed out as non-const.
+ */
+static inline UpdateBroadcaster* Shared_getUpdateBroadcaster(const Shared* const shared) {
+  return (UpdateBroadcaster*)&shared->updateBroadcaster;
+}

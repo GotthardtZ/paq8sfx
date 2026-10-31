@@ -1,10 +1,14 @@
 ﻿#pragma once
 
-#include "DivisionTable.hpp"
-#include "IPredictor.hpp"
-#include "Mixer.hpp"
-#include "Stretch.hpp"
-#include "UpdateBroadcaster.hpp"
+#include "DivisionTable.h"
+#include "IPredictor.h"
+#include "Mixer.h"
+#include "Shared.h"
+#include "Stretch.h"
+#include "UpdateBroadcaster.h"
+
+enum { ResidualMap_MIXERINPUTS = 2, ResidualMap_BINS = 256 };
+
 /**
  * Residual histogram model: tracks the distribution of (partial_actual_value − predicted_value) residuals.
  * The partial_actual_value is the already known bits of the actual byte.
@@ -30,42 +34,35 @@
  * Layout: sums[base+k] = count[0]+...+count[k], k=0..BINS-1.
  *         sums[base+BINS-1] = total.
  */
-class ResidualMap : IPredictor
-{
-public:
-  static constexpr int MIXERINPUTS = 2;
-  static constexpr int BINS = 256;
-
-private:
-  const Shared* const shared;
+typedef struct ResidualMap {
+  IPredictor predictor;
+  const Shared* shared;
   int* dt; /**< Pointer to division table */
   int scale;
 
-  const uint32_t numContexts;
-  const uint32_t histogramsPerContext;
+  uint32_t numContexts;
+  uint32_t histogramsPerContext;
   uint32_t currentContextIndex;
 
-  Array<short>    predictions;  // pixel value prediction per active context
-  Array<uint32_t> bases;        // base offset into sums[] per active context; UINT32_MAX = skipped
-  Array<uint16_t> sums;         // prefix-sum histograms: BINS entries per context per distroset
+  short*    predictions;  // pixel value prediction per active context
+  uint32_t* bases;        // base offset into sums[] per active context; UINT32_MAX = skipped
+  uint16_t* sums;         // prefix-sum histograms: BINS entries per context per distroset
+} ResidualMap;
 
-public:
-  ResidualMap(const Shared* const sh, const int numContexts, const int histogramsPerContext, const int scale = 64);
+// scale is usually 64
+void ResidualMap_init(ResidualMap* rm, const Shared* sh, int numContexts, int histogramsPerContext, int scale);
+void ResidualMap_destroy(ResidualMap* rm);
 
-  void setscale(const int scale);
+void ResidualMap_setscale(ResidualMap* rm, int scale);
 
-  // set: 'prediction' is the predicted byte value; 'distro' selects the histogram set for this context.
-  void set(const short prediction, const uint32_t histogram_id);
-  void skip();
+// set: 'prediction' is the predicted byte value; 'distro' selects the histogram set for this context.
+void ResidualMap_set(ResidualMap* rm, short prediction, uint32_t histogram_id);
+void ResidualMap_skip(ResidualMap* rm);
 
-  // either set() or skip() must be called exactly once per context slot (0..numContexts-1) before mix().
-  void mix(Mixer& m);
+// either set() or skip() must be called exactly once per context slot (0..numContexts-1) before mix().
+// update(): Called once per byte (at bitPosition==0) via UpdateBroadcaster.
+// Walks all active contexts and increments the suffix of their histogram
+// at the bin corresponding to (actual_byte − prediction), then ages if needed.
+void ResidualMap_mix(ResidualMap* rm, Mixer* m);
 
-  // update(): Called once per byte (at bitPosition==0) via UpdateBroadcaster.
-  // Walks all active contexts and increments the suffix of their histogram
-  // at the bin corresponding to (actual_byte − prediction), then ages if needed.
-  void update() override;
-
-
-  void print();
-};
+void ResidualMap_print(const ResidualMap* rm);

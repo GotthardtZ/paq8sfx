@@ -1,7 +1,14 @@
-﻿#include "AdaptiveMap.hpp"
+﻿#include "AdaptiveMap.h"
 
-AdaptiveMap::AdaptiveMap(const Shared* const sh, const int n) : shared(sh), t(n) {
-  dt = DivisionTable::getDT();
+void AdaptiveMap_init(AdaptiveMap* const am, const Shared* const sh, const int n) {
+  am->shared = sh;
+  am->t = ARRAY_NEW(uint32_t, n);
+  am->dt = DivisionTable_getDT();
+}
+
+void AdaptiveMap_destroy(AdaptiveMap* const am) {
+  Array_delete(am->t);
+  am->t = NULL;
 }
 
 // sum = n0+n1
@@ -50,14 +57,14 @@ AdaptiveMap::AdaptiveMap(const Shared* const sh, const int n) : shared(sh), t(n)
 //-> delta_22bit = (target_22bit - p1_22bit) / (sum+2)
 //               = (target_22bit - p1_22bit) * dt[sum] / (1<<30)     // where dt[sum] = (1<<30) / (sum+2)
 
-void AdaptiveMap::update(uint32_t* const p, const int limit) {
+void AdaptiveMap_update(const AdaptiveMap* const am, uint32_t* const p, const int limit) {
   assert(limit > 0 && limit < 1024);
   uint32_t cell = p[0];
   const int sum = cell & 1023;      //sum=n0+n1
-  const int64_t y = shared->State.y;
+  const int64_t y = am->shared->State.y;
   const int64_t target_22bit = y << 22;
   const int64_t p1_22bit = cell >> 10;  //prediction
-  const int delta_22bit = int(((target_22bit - p1_22bit) * int64_t(dt[sum])) >> 30); // see derivation above
-  cell = (uint32_t(p1_22bit + delta_22bit) << 10) | (sum < limit ? sum + 1 : sum);
+  const int delta_22bit = (int)(((target_22bit - p1_22bit) * (int64_t)(am->dt[sum])) >> 30); // see derivation above
+  cell = ((uint32_t)(p1_22bit + delta_22bit) << 10) | (sum < limit ? sum + 1 : sum);
   p[0] = cell;
 }

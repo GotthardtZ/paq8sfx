@@ -1,7 +1,7 @@
 ﻿// The libc-free stub on Windows (x64).
 //
 // The stub uses kernel32.dll only. This file contains:
-//   - the plat_* functions of Platform.hpp
+//   - the plat_* functions of Platform.h
 //   - the C functions that only the Windows code of the stub calls
 //     (_wfopen, _wstat64, system)
 //   - the entry point of the program, which also splits the command line
@@ -11,7 +11,7 @@
 // settings it needs are explained in the Makefile (the stub-free rules) and
 // in paq8sfx.vcxproj (the Release-SFX-Free configuration).
 
-#include "Platform.hpp"
+#include "Platform.h"
 
 #if defined(SFX) && defined(SFX_FREESTANDING) && defined(_WIN32)
 
@@ -34,7 +34,7 @@ static int lastError = 0;   // this is "errno"
 
 // Sets errno after a failed Windows call. The stub only ever asks whether a
 // file was "not found" (ENOENT); every other failure is reported as EIO.
-static void setLastError() {
+static void setLastError(void) {
   const DWORD error = GetLastError();
   const bool notFound = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ||
                         error == ERROR_INVALID_NAME;
@@ -44,16 +44,16 @@ static void setLastError() {
 // Windows takes file names in UTF-16, the stub keeps them in UTF-8.
 // Both functions return a new string (to be freed with free), or null.
 static wchar_t* toUtf16(const char* text) {
-  const int length = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);   // counts the final zero
+  const int length = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);   // counts the final zero
   wchar_t* result = (wchar_t*)malloc((size_t)length * sizeof(wchar_t));
   if (result) MultiByteToWideChar(CP_UTF8, 0, text, -1, result, length);
   return result;
 }
 
 static char* toUtf8(const wchar_t* text) {
-  const int length = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+  const int length = WideCharToMultiByte(CP_UTF8, 0, text, -1, NULL, 0, NULL, NULL);
   char* result = (char*)malloc((size_t)length);
-  if (result) WideCharToMultiByte(CP_UTF8, 0, text, -1, result, length, nullptr, nullptr);
+  if (result) WideCharToMultiByte(CP_UTF8, 0, text, -1, result, length, NULL, NULL);
   return result;
 }
 
@@ -63,9 +63,8 @@ static DWORD atMostOneGigabyte(size_t count) {
   return count < 0x40000000 ? (DWORD)count : 0x40000000;
 }
 
-extern "C" {
 
-// --------------------------------------------------------------- Platform.hpp
+// --------------------------------------------------------------- Platform.h
 
 plat_file plat_open(const char* path, bool create) {
   wchar_t* widePath = toUtf16(path);
@@ -73,9 +72,9 @@ plat_file plat_open(const char* path, bool create) {
   const HANDLE handle = CreateFileW(widePath,
                                     create ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ,
                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                    nullptr,
+                                    NULL,
                                     create ? CREATE_ALWAYS : OPEN_EXISTING,
-                                    FILE_ATTRIBUTE_NORMAL, nullptr);
+                                    FILE_ATTRIBUTE_NORMAL, NULL);
   free(widePath);
   if (handle == INVALID_HANDLE_VALUE) { setLastError(); return PLAT_NO_FILE; }
   return (plat_file)handle;
@@ -87,7 +86,7 @@ void plat_close(plat_file file) {
 
 int64_t plat_read(plat_file file, void* buffer, size_t count) {
   DWORD done = 0;
-  if (!ReadFile((HANDLE)file, buffer, atMostOneGigabyte(count), &done, nullptr)) {
+  if (!ReadFile((HANDLE)file, buffer, atMostOneGigabyte(count), &done, NULL)) {
     setLastError();
     return -1;
   }
@@ -96,7 +95,7 @@ int64_t plat_read(plat_file file, void* buffer, size_t count) {
 
 int64_t plat_write(plat_file file, const void* buffer, size_t count) {
   DWORD done = 0;
-  if (!WriteFile((HANDLE)file, buffer, atMostOneGigabyte(count), &done, nullptr)) {
+  if (!WriteFile((HANDLE)file, buffer, atMostOneGigabyte(count), &done, NULL)) {
     setLastError();
     return -1;
   }
@@ -116,14 +115,15 @@ int64_t plat_seek(plat_file file, int64_t offset, int whence) {
 }
 
 void* plat_alloc(size_t size) {
-  return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  return VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 }
 
-void plat_free(void* memory, size_t) {
+void plat_free(void* memory, size_t size) {
+  (void)size;   // MEM_RELEASE frees the whole block; the size is not needed
   VirtualFree(memory, 0, MEM_RELEASE);
 }
 
-[[noreturn]] void plat_exit(int exitCode) {
+PLAT_NORETURN void plat_exit(int exitCode) {
   ExitProcess((UINT)exitCode);
 }
 
@@ -135,7 +135,7 @@ int* __cdecl _errno(void) { return &lastError; }
 // fopen with a UTF-16 file name. Only the first letter of the mode matters.
 FILE* __cdecl _wfopen(const wchar_t* path, const wchar_t* mode) {
   char* utf8Path = toUtf8(path);
-  if (!utf8Path) { lastError = EIO; return nullptr; }
+  if (!utf8Path) { lastError = EIO; return NULL; }
   FILE* file = fopen(utf8Path, mode[0] == L'w' ? "wb" : "rb");
   free(utf8Path);
   return file;
@@ -162,7 +162,7 @@ int __cdecl system(const char* command) {
   // The command line to run:  cmd.exe /c command
   static const wchar_t prefix[] = L"cmd.exe /c ";
   const size_t prefixLength = sizeof(prefix) / sizeof(wchar_t) - 1;
-  const int commandLength = MultiByteToWideChar(CP_UTF8, 0, command, -1, nullptr, 0);   // counts the final zero
+  const int commandLength = MultiByteToWideChar(CP_UTF8, 0, command, -1, NULL, 0);   // counts the final zero
   wchar_t* commandLine = (wchar_t*)malloc((prefixLength + (size_t)commandLength) * sizeof(wchar_t));
   if (!commandLine) return -1;
   memcpy(commandLine, prefix, prefixLength * sizeof(wchar_t));
@@ -178,8 +178,8 @@ int __cdecl system(const char* command) {
   memset(&startupInfo, 0, sizeof(startupInfo));
   startupInfo.cb = sizeof(startupInfo);
   PROCESS_INFORMATION process;
-  const BOOL started = CreateProcessW(haveInterpreter ? interpreter : nullptr, commandLine,
-                                      nullptr, nullptr, TRUE, 0, nullptr, nullptr,
+  const BOOL started = CreateProcessW(haveInterpreter ? interpreter : NULL, commandLine,
+                                      NULL, NULL, TRUE, 0, NULL, NULL,
                                       &startupInfo, &process);
   free(commandLine);
   if (!started) return -1;
@@ -195,13 +195,7 @@ int __cdecl system(const char* command) {
 #if defined(_MSC_VER)
 // MSVC expects this variable in every program that uses floating point.
 int _fltused = 0;
-
-// Called if a pure virtual function is ever called, which would be a bug.
-// (MSVC; the GCC name is in CRuntime.cpp.)
-int __cdecl _purecall(void) { plat_exit(70); }
 #endif
-
-} // extern "C"
 
 // ----------------------------------------------------------- command line --
 // Windows hands a program its command line as one string. This splits it
@@ -237,60 +231,27 @@ static char** splitCommandLine(int* argc) {
     if (*p) ++p;                 // step over the blank that ended the argument
     *out = '\0';
   }
-  argv[count] = nullptr;
+  argv[count] = NULL;
   *argc = count;
   return argv;
 }
 
 // ------------------------------------------------------------ entry point --
-// Windows starts the program at sfx_entry (the linker is told so). Before
-// main can run, the constructors of the global objects have to be called.
-// The compiler collects pointers to them in a table.
+// Windows starts the program at sfx_entry (the linker is told so). A C
+// program has no constructors of global objects to run before main.
 
-typedef void (__cdecl *Constructor)(void);
-
-#if defined(_MSC_VER)
-
-// MSVC: the table is everything the linker places between the sections
-// .CRT$XCA and .CRT$XCZ (it sorts sections by name). Entries may be null.
-#pragma section(".CRT$XCA", long, read)
-#pragma section(".CRT$XCZ", long, read)
-extern "C" __declspec(allocate(".CRT$XCA")) Constructor sfx_xc_a[] = { nullptr };
-extern "C" __declspec(allocate(".CRT$XCZ")) Constructor sfx_xc_z[] = { nullptr };
-#pragma comment(linker, "/merge:.CRT=.rdata")
-
-static void runConstructors() {
-  // "volatile" keeps the optimizer from reasoning about these two pointers:
-  // to the compiler they point into different arrays, and it could conclude
-  // that the loop never runs.
-  Constructor* volatile begin = sfx_xc_a + 1;
-  Constructor* volatile end   = sfx_xc_z;
-  for (Constructor* constructor = begin; constructor < end; ++constructor) {
-    if (*constructor) (*constructor)();
-  }
-}
-
-#else
-
-// GCC: the table is __CTOR_LIST__: an unused first entry, then the
-// constructors, then a null. GCC makes main call __main first, which has to
-// call them, last one first.
-extern "C" Constructor __CTOR_LIST__[];
-
-extern "C" void __main(void) {
-  size_t count = 0;
-  while (__CTOR_LIST__[count + 1]) ++count;
-  for (size_t i = count; i >= 1; --i) __CTOR_LIST__[i]();
-}
-
+#if !defined(_MSC_VER)
+// GCC makes main call __main first, which would run the constructors of the
+// global objects. The stub has none.
+void __main(void);
+void __main(void) {}
 #endif
 
-extern "C" int main(int argc, char** argv);
+int main(int argc, char** argv);
 
-extern "C" void __cdecl sfx_entry(void) {
-#if defined(_MSC_VER)
-  runConstructors();   // with GCC, main does this by calling __main
-#endif
+void __cdecl sfx_entry(void);
+
+void __cdecl sfx_entry(void) {
   int argc = 0;
   char** argv = splitCommandLine(&argc);
   plat_exit(main(argc, argv));

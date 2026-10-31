@@ -1,34 +1,56 @@
-#pragma once
+﻿#include "FileMemRead.h"
 
-#include "File.hpp"
-#include <cstring>
+static bool FileMemRead_open(File* const f, const char* const filename, const bool mustSucceed) {
+  (void)f; (void)filename; (void)mustSucceed;
+  return true;
+}
 
-/**
- * Read-only File over a memory buffer (which it does not own).
- * Used by the extract-only stub to decompress a payload straight from the
- * package image, without writing the compressed payload to disk first.
- * Write operations are ignored.
- */
-class FileMemRead : public File {
-  const uint8_t* data;
-  uint64_t size;
-  uint64_t pos = 0;
-public:
-  FileMemRead(const uint8_t* buffer, uint64_t length) : data(buffer), size(length) {}
-  bool open(const char*, bool) override { return true; }
-  void create(const char*) override {}
-  void close() override {}
-  int getchar() override { return pos < size ? data[pos++] : EOF; }
-  void putChar(uint8_t) override {}
-  uint64_t blockRead(uint8_t* ptr, uint64_t count) override {
-    const uint64_t n = count < size - pos ? count : size - pos;
-    memcpy(ptr, data + pos, (size_t)n);
-    pos += n;
-    return n;
-  }
-  void blockWrite(uint8_t*, uint64_t) override {}
-  void setpos(uint64_t newPos) override { pos = newPos < size ? newPos : size; }
-  void setEnd() override { pos = size; }
-  uint64_t curPos() override { return pos; }
-  bool eof() override { return pos >= size; }
+static void FileMemRead_create(File* const f, const char* const filename) { (void)f; (void)filename; }
+
+static void FileMemRead_close(File* const f) { (void)f; }
+
+static int FileMemRead_getChar(File* const f) {
+  FileMemRead* const self = (FileMemRead*)f;
+  return self->pos < self->size ? self->data[self->pos++] : EOF;
+}
+
+static void FileMemRead_putChar(File* const f, const uint8_t c) { (void)f; (void)c; }
+
+static uint64_t FileMemRead_blockRead(File* const f, uint8_t* const ptr, const uint64_t count) {
+  FileMemRead* const self = (FileMemRead*)f;
+  const uint64_t n = count < self->size - self->pos ? count : self->size - self->pos;
+  memcpy(ptr, self->data + self->pos, (size_t)n);
+  self->pos += n;
+  return n;
+}
+
+static void FileMemRead_blockWrite(File* const f, uint8_t* const ptr, const uint64_t count) { (void)f; (void)ptr; (void)count; }
+
+static void FileMemRead_setpos(File* const f, const uint64_t newPos) {
+  FileMemRead* const self = (FileMemRead*)f;
+  self->pos = newPos < self->size ? newPos : self->size;
+}
+
+static void FileMemRead_setEnd(File* const f) {
+  FileMemRead* const self = (FileMemRead*)f;
+  self->pos = self->size;
+}
+
+static uint64_t FileMemRead_curPos(File* const f) { return ((FileMemRead*)f)->pos; }
+
+static bool FileMemRead_eof(File* const f) {
+  FileMemRead* const self = (FileMemRead*)f;
+  return self->pos >= self->size;
+}
+
+static const FileVtbl FileMemRead_vtbl = {
+  FileMemRead_open, FileMemRead_create, FileMemRead_close, FileMemRead_getChar, FileMemRead_putChar,
+  FileMemRead_blockRead, FileMemRead_blockWrite, FileMemRead_setpos, FileMemRead_setEnd, FileMemRead_curPos, FileMemRead_eof
 };
+
+void FileMemRead_init(FileMemRead* const f, const uint8_t* const buffer, const uint64_t length) {
+  f->base.vt = &FileMemRead_vtbl;
+  f->data = buffer;
+  f->size = length;
+  f->pos = 0;
+}

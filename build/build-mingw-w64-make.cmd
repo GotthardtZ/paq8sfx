@@ -13,7 +13,7 @@ rem * root. The programs are created in this folder (build); the object files go
 rem * Unlike build-mingw-w64.cmd, only what changed since the last build is recompiled.
 rem *
 rem * Requirements:
-rem *   - MinGW-w64 with g++.exe and mingw32-make.exe (set its path below)
+rem *   - MinGW-w64 with gcc.exe and mingw32-make.exe (set its path below)
 rem *   - sh, mkdir, rm, printf and cmp, which the Makefile runs; Git for Windows has them
 rem *     in its usr\bin folder (set its path below)
 rem *
@@ -36,7 +36,7 @@ set "mingw_dir=c:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0
 rem * Set your Git for Windows usr\bin path below
 set "git_dir=C:\Program Files\Git\usr\bin"
 
-rem * MinGW-w64 first, so that no other g++ on the path is used; Git's tools last, so that
+rem * MinGW-w64 first, so that no other gcc on the path is used; Git's tools last, so that
 rem * they do not hide Windows' own commands (find, sort, ...)
 set "PATH=%mingw_dir%;%PATH%;%git_dir%"
 
@@ -44,8 +44,8 @@ rem * Define base paths
 set "project_dir=%~dp0.."
 
 rem * Check for the tools
-where g++.exe >nul 2>&1 || (
-  echo %RED%[FAILED]%RESET% g++.exe not found.
+where gcc.exe >nul 2>&1 || (
+  echo %RED%[FAILED]%RESET% gcc.exe not found.
   echo Suggested path: "c:\mingw\winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1\bin"
   echo If your MinGW-w64 installation is in a different folder update mingw_dir in this script.
   pause
@@ -53,7 +53,7 @@ where g++.exe >nul 2>&1 || (
 )
 where mingw32-make.exe >nul 2>&1 || (
   echo %RED%[FAILED]%RESET% mingw32-make.exe not found.
-  echo It comes with MinGW-w64 ^(in the same bin folder as g++.exe^).
+  echo It comes with MinGW-w64 ^(in the same bin folder as gcc.exe^).
   pause
   exit /b 1
 )

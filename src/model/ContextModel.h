@@ -1,25 +1,18 @@
-#pragma once
+﻿#pragma once
 
-#include "../BlockType.hpp"
-#include "../Mixer.hpp"
-#include "../MixerFactory.hpp"
-#include "IContextModel.hpp"
-
-class ContextModelGeneric;
+#include "../Shared.h"
+#include "ContextModelGeneric.h"
 
 /**
  * This combines all the context models with a Mixer.
  * Owns the context model it selects (created on first use).
  */
-class ContextModel {
-  Shared * const shared;
-  const MixerFactory* const mixerFactory;
+typedef struct ContextModel {
+  Shared* shared;
+  ContextModelGeneric* contextModelGeneric;
+  ContextModelGeneric* selectedContextModel;
+} ContextModel;
 
-  ContextModelGeneric* contextModelGeneric = nullptr;
-  IContextModel* selectedContextModel = nullptr;
-
-public:
-  ContextModel(Shared* const sh, const MixerFactory* const mixerFactory);
-  ~ContextModel();
-  int p();
-};
+void ContextModel_init(ContextModel* cm, Shared* sh);
+void ContextModel_destroy(ContextModel* cm);
+int ContextModel_p(ContextModel* cm);

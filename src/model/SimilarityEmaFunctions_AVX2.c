@@ -1,4 +1,4 @@
-﻿#include "SimilarityEmaFunctions_AVX2.hpp"
+﻿#include "SimilarityEmaFunctions_AVX2.h"
 
 #ifdef X64_SIMD_AVAILABLE
 
@@ -13,12 +13,10 @@
 //
 // AVX2 lane-crossing note: _mm256_packus_epi32(lo, hi) does not produce sequential
 // output - it interleaves results from the two 128-bit lanes. A subsequent
-// _mm256_permute4x64_epi64(..., 0b11011000) is required to restore sequential order.
+// _mm256_permute4x64_epi64(..., 0xD8) is required to restore sequential order.
 
-#if (defined(__GNUC__) || defined(__clang__))
-__attribute__((target("avx2")))
-#endif
-void SimilarityEmaFunctions_AVX2::update_and_find(
+TARGET("avx2")
+void SimilarityEmaFunctions_AVX2_update_and_find(
   uint16_t* ema_buf1,
   uint16_t* ema_buf2,
   const uint8_t* history_buffer_ptr,
@@ -100,9 +98,9 @@ void SimilarityEmaFunctions_AVX2::update_and_find(
     __m256i res_hi2 = _mm256_srli_epi32(tmp_hi2, 6);
 
     // _mm256_packus_epi32 interleaves 128-bit lanes; permute restores sequential order.
-    // 0b11011000 = indices [0,2,1,3] → moves lane1-lo and lane1-hi into contiguous positions.
-    __m256i new_ema1 = _mm256_permute4x64_epi64(_mm256_packus_epi32(res_lo1, res_hi1), 0b11011000);
-    __m256i new_ema2 = _mm256_permute4x64_epi64(_mm256_packus_epi32(res_lo2, res_hi2), 0b11011000);
+    // 0xD8 (0b11011000) = indices [0,2,1,3] → moves lane1-lo and lane1-hi into contiguous positions.
+    __m256i new_ema1 = _mm256_permute4x64_epi64(_mm256_packus_epi32(res_lo1, res_hi1), 0xD8);
+    __m256i new_ema2 = _mm256_permute4x64_epi64(_mm256_packus_epi32(res_lo2, res_hi2), 0xD8);
 
     // --- Store updated EMA values ---
     _mm256_store_si256((__m256i*)(ema_buf1 + i), new_ema1);

@@ -1,25 +1,22 @@
-#pragma once
+﻿#pragma once
 
-#include "Shared.hpp"
-#include "Encoder.hpp"
-#include "BlockType.hpp"
-
-namespace Block {
+#include "Shared.h"
+#include "Encoder.h"
+#include "BlockType.h"
 
 #ifdef FULL
-  void EncodeBlockHeader(Encoder* const encoder, BlockType blockType, uint64_t blockSize, int blockInfo);
+void Block_EncodeBlockHeader(Encoder* encoder, BlockType blockType, uint64_t blockSize, int blockInfo);
 #endif
-  uint64_t DecodeBlockHeader(Encoder* const encoder);
+uint64_t Block_DecodeBlockHeader(Encoder* encoder);
 #ifdef FULL
-  void EncodeBlockSize(Encoder* const encoder, uint64_t blockSize);
+void Block_EncodeBlockSize(Encoder* encoder, uint64_t blockSize);
 #endif
-  uint64_t DecodeBlockSize(Encoder* const encoder);
+uint64_t Block_DecodeBlockSize(Encoder* encoder);
 #ifdef FULL
-  void EncodeBlockType(Encoder* const encoder, BlockType blocktype);
+void Block_EncodeBlockType(Encoder* encoder, BlockType blocktype);
 #endif
-  BlockType DecodeBlockType(Encoder* const encoder);
+BlockType Block_DecodeBlockType(Encoder* encoder);
 #ifdef FULL
-  void EncodeInfo(Encoder* const encoder, int info);
+void Block_EncodeInfo(Encoder* encoder, int info);
 #endif
-  int DecodeInfo(Encoder* const encoder);
-};
+int Block_DecodeInfo(Encoder* encoder);

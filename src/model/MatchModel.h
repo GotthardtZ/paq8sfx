@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include "../Shared.hpp"
-#include "../ContextMap2.hpp"
-#include "../HashElementForMatchPositions.hpp"
+#include "../Shared.h"
+#include "../ContextMap2.h"
+#include "../HashElementForMatchPositions.h"
 
-#include "MatchInfo.hpp"
+#include "MatchInfo.h"
 
 /**
  * Predict the next bit based on a preceding long matching byte sequence
@@ -12,38 +12,31 @@
  * This model monitors byte sequences and keeps their most recent positions in a hashtable.
  * When the current byte sequence matches an older sequence (having the same hash) the model predicts the forthcoming bits.
  */
-class MatchModel {
-private:
-  static constexpr int nCM = 2;
-  static constexpr int nST = 3;
-  Shared * const shared;
-  Array<HashElementForMatchPositions> hashtable;
-  StateMap stateMaps[nST];
-  ContextMap2 cm;
-  uint32_t ctx[nST] {0};
-  const int hashBits;
-  Ilog *ilog = &Ilog::getInstance();
-
-  static constexpr int MINLEN_RM = 3; //minimum length in recovery mode before we "fully recover"
-  static constexpr int LEN1 = 5;  //note: this length is modelled by NormalModel
-  static constexpr int LEN2 = 7;  //note: this length is *not* modelled by NormalModel
-  static constexpr int LEN3 = 9;  //note: this length is *not* modelled by NormalModel
-
-  static constexpr size_t N = 4; // maximum number of match candidates
-  Array<MatchInfo> matchCandidates{ N };
-  uint32_t numberOfActiveCandidates = 0;
-
-  bool isMatch(const uint32_t pos, const uint32_t MINLEN) const;
-  void AddCandidates(HashElementForMatchPositions* matches, uint32_t LEN);
-
-public:
-  static constexpr int MIXERINPUTS =
+enum {
+  MatchModel_nCM = 2,
+  MatchModel_nST = 3,
+  MatchModel_MIXERINPUTS =
     2 + // direct mixer inputs based on expectedBit
-    nCM * (ContextMap2::MIXERINPUTS) +
-    nST * 2; //22
-  static constexpr int MIXERCONTEXTS = 20;
-  static constexpr int MIXERCONTEXTSETS = 1;
-  MatchModel(Shared* const sh, const uint64_t hashtablesize, const uint64_t mapmemorysize);
-  void update();
-  void mix(Mixer &m);
+    MatchModel_nCM * (ContextMap2_MIXERINPUTS) +
+    MatchModel_nST * 2, //22
+  MatchModel_MIXERCONTEXTS = 20,
+  MatchModel_MIXERCONTEXTSETS = 1,
+  MatchModel_N = 4 // maximum number of match candidates
 };
+
+typedef struct MatchModel {
+  Shared* shared;
+  HashElementForMatchPositions* hashtable;
+  StateMap stateMaps[MatchModel_nST];
+  ContextMap2 cm;
+  uint32_t ctx[MatchModel_nST];
+  int hashBits;
+
+  MatchInfo matchCandidates[MatchModel_N];
+  uint32_t numberOfActiveCandidates;
+} MatchModel;
+
+void MatchModel_init(MatchModel* mm, Shared* sh, uint64_t hashtablesize, uint64_t mapmemorysize);
+void MatchModel_destroy(MatchModel* mm);
+void MatchModel_update(MatchModel* mm);
+void MatchModel_mix(MatchModel* mm, Mixer* m);

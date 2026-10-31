@@ -1,4 +1,4 @@
-﻿#include "SimilarityEmaFunctions_SSE41.hpp"
+﻿#include "SimilarityEmaFunctions_SSE41.h"
 
 #if defined(X64_SIMD_AVAILABLE) && !defined(AVX2_ONLY)
 
@@ -15,10 +15,8 @@
 // Strategy: widen 8 x uint16 → two groups of 4 x uint32, compute blend in 32-bit lanes,
 // pack results back to uint16 with _mm_packus_epi32 (requires SSE4.1).
 
-#if (defined(__GNUC__) || defined(__clang__))
-__attribute__((target("sse4.1")))
-#endif
-void SimilarityEmaFunctions_SSE41::update_and_find(
+TARGET("sse4.1")
+void SimilarityEmaFunctions_SSE41_update_and_find(
   uint16_t* ema_buf1,
   uint16_t* ema_buf2,
   const uint8_t* history_buffer_ptr,

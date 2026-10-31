@@ -1,71 +1,78 @@
-﻿#include "Shared.hpp"
-#include "ArithmeticEncoder.hpp"
-#include "Simd.hpp"
+﻿#include "Shared.h"
+#include "ArithmeticEncoder.h"
+#include "Ilog.h"
+#include "Simd.h"
+#include "Stretch.h"
+#include "Utils.h"
 
-Shared::Shared() {
-}
+void Shared_init(Shared* const shared, const uint8_t level) {
+  memset(shared, 0, sizeof(Shared));
+  shared->State.c0 = 1;
+  shared->chosenSimd = SIMD_NONE;
 
-void Shared::init(uint8_t level) {
+  // The lookup tables of the models
+  Stretch_init();
+  Ilog_init();
 
-  this->level = level;
-  mem = UINT64_C(65536) << level;
-  uint32_t bufMem = static_cast<uint32_t>(min(mem * 8, UINT64_C(1) << 30)); /**< no reason to go over 1 GB */
+  shared->level = level;
+  shared->mem = UINT64_C(65536) << level;
+  // No reason to go over 256 MB.
+  const uint64_t want = shared->mem * 8;
+  const uint32_t bufMem = (uint32_t)(want < (UINT64_C(1) << 28) ? want : (UINT64_C(1) << 28));
   assert(isPowerOf2(bufMem));
-  buf.setSize(bufMem);
+  RingBuffer_setSize(&shared->buf, bufMem);
 
   // Determine CPU's (and OS) support for SIMD vectorization instruction set
   int simdIset = simdDetect();
 
   // Set highest or user selected vectorization mode
   if (simdIset >= 9) {
-    chosenSimd = SIMDType::SIMD_AVX2;
+    shared->chosenSimd = SIMD_AVX2;
   }
   else if (simdIset >= 6) {
-    chosenSimd = SIMDType::SIMD_SSE41;
+    shared->chosenSimd = SIMD_SSE41;
   }
   else if (simdIset >= 4) {
-    chosenSimd = SIMDType::SIMD_SSE3;
+    shared->chosenSimd = SIMD_SSE3;
   }
   else if (simdIset >= 3) {
-    chosenSimd = SIMDType::SIMD_SSE2;
+    shared->chosenSimd = SIMD_SSE2;
   }
   else {
-    chosenSimd = SIMDType::SIMD_NONE;
+    shared->chosenSimd = SIMD_NONE;
   }
 }
 
-void Shared::update(int y, uint32_t p, bool isMissed) {
-  State.y = y;
-  State.c0 += State.c0 + y;
-  State.bitPosition = (State.bitPosition + 1) & 7;
-  if(State.bitPosition == 0 ) {
-    State.c1 = State.c0;
-    buf.add(State.c1);
-    State.c8 = (State.c8 << 8) | (State.c4 >> 24);
-    State.c4 = (State.c4 << 8) | State.c0;
-    State.c0 = 1;
+void Shared_destroy(Shared* const shared) {
+  RingBuffer_destroy(&shared->buf);
+}
+
+void Shared_update(Shared* const shared, const int y, const uint32_t p, const bool isMissed) {
+  shared->State.y = y;
+  shared->State.c0 += shared->State.c0 + y;
+  shared->State.bitPosition = (shared->State.bitPosition + 1) & 7;
+  if(shared->State.bitPosition == 0 ) {
+    shared->State.c1 = shared->State.c0;
+    RingBuffer_add(&shared->buf, shared->State.c1);
+    shared->State.c8 = (shared->State.c8 << 8) | (shared->State.c4 >> 24);
+    shared->State.c4 = (shared->State.c4 << 8) | shared->State.c0;
+    shared->State.c0 = 1;
   }
  
-  State.misses = (State.misses << 1) | static_cast<uint32_t>(isMissed);
+  shared->State.misses = (shared->State.misses << 1) | (uint32_t)isMissed;
 
-  constexpr uint32_t shift = ArithmeticEncoder::PRECISION - 6;
-  constexpr uint32_t maxp = (1u << ArithmeticEncoder::PRECISION) - 1;
+  const uint32_t shift = ArithmeticEncoder_PRECISION - 6;
+  const uint32_t maxp = (1u << ArithmeticEncoder_PRECISION) - 1;
 
-  State.loss = ((y == 0 ? p : maxp - p)) >> shift; //0..1023
-  assert(State.loss >= 0 && State.loss <= 1023);
+  shared->State.loss = ((y == 0 ? p : maxp - p)) >> shift; //0..1023
+  assert(shared->State.loss <= 1023);
 
   // Broadcast to all current subscribers: y (and c0, c1, c4, etc) is known
-  updateBroadcaster.broadcastUpdate();
+  UpdateBroadcaster_broadcastUpdate(&shared->updateBroadcaster);
 }
 
-void Shared::reset() {
-  buf.reset();
-  memset(&State, 0, sizeof(State));
-  State.c0 = 1;
+void Shared_reset(Shared* const shared) {
+  RingBuffer_reset(&shared->buf);
+  memset(&shared->State, 0, sizeof(shared->State));
+  shared->State.c0 = 1;
 }
-
-UpdateBroadcaster *Shared::GetUpdateBroadcaster() const {
-  UpdateBroadcaster* updater = const_cast<UpdateBroadcaster*>(&updateBroadcaster);
-  return updater;
-}
-

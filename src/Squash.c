@@ -1,4 +1,4 @@
-#include "Squash.hpp"
+﻿#include "Squash.h"
 
 /**
  * return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits

@@ -1,19 +1,20 @@
-﻿#include "PredictorMain.hpp"
-#include "ArithmeticEncoder.hpp"
+﻿#include "PredictorMain.h"
+#include "ArithmeticEncoder.h"
 
-PredictorMain::PredictorMain(Shared* const sh) : shared(sh), sse(sh) {
-  shared->reset();
-  mixerFactory = new MixerFactory(shared);
-  contextModel = new ContextModel(sh, mixerFactory);
+void PredictorMain_init(PredictorMain* const predictor, Shared* const sh) {
+  predictor->shared = sh;
+  SSE_init(&predictor->sse, sh);
+  Shared_reset(predictor->shared);
+  ContextModel_init(&predictor->contextModel, sh);
 }
 
-PredictorMain::~PredictorMain() {
-  delete contextModel;
-  delete mixerFactory;
+void PredictorMain_destroy(PredictorMain* const predictor) {
+  ContextModel_destroy(&predictor->contextModel);
+  SSE_destroy(&predictor->sse);
 }
 
-uint32_t PredictorMain::p() {
-  uint32_t pr = contextModel->p();
-  pr = sse.p(pr);
+uint32_t PredictorMain_p(PredictorMain* const predictor) {
+  uint32_t pr = ContextModel_p(&predictor->contextModel);
+  pr = SSE_p(&predictor->sse, pr);
   return pr;
 }

@@ -27,361 +27,382 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="paq8sfx.cpp">
+    <ClCompile Include="AdaptiveMap.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="platform\CRuntime.cpp">
+    <ClCompile Include="APM.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="APM1.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="APMPost.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ArithmeticEncoder.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Array.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Block.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BlockType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Bucket16.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ContextMap2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DivisionTable.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Encoder.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ilog.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IndirectMap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mixer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mixer_AVX2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mixer_Scalar.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mixer_SSE2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MixerFactory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="paq8sfx.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PredictorMain.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Random.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ResidualMap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Shared.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Squash.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SSE.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateMap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateTable.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Stretch.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="String.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UpdateBroadcaster.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="file\File.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\FileDisk.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\FileExeRead.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\FileMemRead.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\FileName.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\FileTmp.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\fileUtils.c">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="filter\exe.c">
+      <Filter>filter</Filter>
+    </ClCompile>
+    <ClCompile Include="filter\Filters.c">
+      <Filter>filter</Filter>
+    </ClCompile>
+    <ClCompile Include="model\ChartModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\ContextModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\ContextModelGeneric.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\ExeModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\MatchInfo.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\MatchModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\NormalModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityEmaFunctions_AVX2.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityEmaFunctions_Scalar.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityEmaFunctions_SSE41.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityEmaFunctionsFactory.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SimilarityModelPair.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SparseBitModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="model\SparseModel.c">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\CRuntime.c">
       <Filter>platform</Filter>
     </ClCompile>
-    <ClCompile Include="platform\Platform_Linux.cpp">
+    <ClCompile Include="platform\Platform_Linux.c">
       <Filter>platform</Filter>
     </ClCompile>
-    <ClCompile Include="platform\Platform_Windows.cpp">
+    <ClCompile Include="platform\Platform_Windows.c">
       <Filter>platform</Filter>
-    </ClCompile>
-    <ClCompile Include="APM.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="APM1.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ContextMap2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Encoder.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Ilog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="IndirectMap.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Mixer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MixerFactory.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Random.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Shared.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SSE.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="StateMap.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="StateTable.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="String.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="UpdateBroadcaster.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="file\File.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\FileDisk.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\FileName.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\FileTmp.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="model\ContextModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\ExeModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\MatchModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\NormalModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SparseModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClInclude Include="Clz.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClCompile Include="ArithmeticEncoder.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SparseBitModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="APMPost.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="model\ContextModelGeneric.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\ChartModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="Stretch.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Squash.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BlockType.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Block.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="PredictorMain.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="model\MatchInfo.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="Mixer_Scalar.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Mixer_SSE2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Mixer_AVX2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ResidualMap.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityModel.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityEmaFunctions_Scalar.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityEmaFunctions_AVX2.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityEmaFunctions_SSE41.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityEmaFunctionsFactory.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="model\SimilarityModelPair.cpp">
-      <Filter>model</Filter>
-    </ClCompile>
-    <ClCompile Include="AdaptiveMap.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="platform\Platform.hpp">
+    <ClInclude Include="AdaptiveMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="APM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="APM1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="APMPost.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ArithmeticEncoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Array.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Block.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BlockType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Bucket16.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Clz.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ContextMap2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DivisionTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Encoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashElementForContextMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashElementForMatchPositions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ilog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IndirectMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IPredictor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mixer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mixer_AVX2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mixer_Scalar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mixer_SSE2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MixerFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PredictorMain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Random.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ResidualMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RingBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Simd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SIMDType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Squash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SSE.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Stretch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="String.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SystemDefines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UpdateBroadcaster.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="file\File.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileDisk.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileExeRead.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileMemRead.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileName.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\FileTmp.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\fileUtils.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\fileUtils2.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="filter\exe.h">
+      <Filter>filter</Filter>
+    </ClInclude>
+    <ClInclude Include="filter\Filter.h">
+      <Filter>filter</Filter>
+    </ClInclude>
+    <ClInclude Include="filter\Filters.h">
+      <Filter>filter</Filter>
+    </ClInclude>
+    <ClInclude Include="model\ChartModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\ContextModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\ContextModelGeneric.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\ExeModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\MatchInfo.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\MatchModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\NormalModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityEmaFunctions_AVX2.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityEmaFunctions_Scalar.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityEmaFunctions_SSE41.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityEmaFunctionsFactory.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SimilarityModelPair.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SparseBitModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="model\SparseModel.h">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\Platform.h">
       <Filter>platform</Filter>
-    </ClInclude>
-    <ClInclude Include="AdaptiveMap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="APM.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="APM1.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Array.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ContextMap2.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DivisionTable.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Encoder.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Hash.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Ilog.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="IndirectMap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="IPredictor.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Mixer.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MixerFactory.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Random.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RingBuffer.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Shared.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Simd.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Squash.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SSE.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StateMap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StateTable.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Stretch.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="String.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UpdateBroadcaster.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Utils.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="file\File.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\FileDisk.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\FileMemRead.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\FileName.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\FileTmp.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\fileUtils.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\fileUtils2.hpp">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="filter\exe.hpp">
-      <Filter>filter</Filter>
-    </ClInclude>
-    <ClInclude Include="filter\Filter.hpp">
-      <Filter>filter</Filter>
-    </ClInclude>
-    <ClInclude Include="filter\Filters.hpp">
-      <Filter>filter</Filter>
-    </ClInclude>
-    <ClInclude Include="model\ContextModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\ExeModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\MatchModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\NormalModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SparseModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="ArithmeticEncoder.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SparseBitModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="Bucket16.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HashElementForContextMap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HashElementForMatchPositions.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HashElementForBitHistoryState.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="APMPost.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="model\ChartModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="SystemDefines.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="BlockType.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SIMDType.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="model\IContextModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="Block.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PredictorMain.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Mixer_AVX2.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Mixer_Scalar.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Mixer_SSE2.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="model\MatchInfo.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="ResidualMap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityModel.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityEmaFunctions_Scalar.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityEmaFunctions_AVX2.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityEmaFunctions_SSE41.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityEmaFunctionsFactory.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="model\SimilarityModelPair.hpp">
-      <Filter>model</Filter>
-    </ClInclude>
-    <ClInclude Include="file\FileExeRead.hpp">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

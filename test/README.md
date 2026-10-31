@@ -24,7 +24,7 @@ The test copies the two executables from the `build` folder to the `test` folder
 
 To test the libc-free stub, use `stub-free` (`stub-free.exe`) in place of `stub`: copy it over `stub` in the `build` folder, or run `make test-free`.
 
-On Windows the test script adds the MinGW-w64 `bin` folder to the `PATH`, so that the normal stub (`stub.exe`) and the packages assembled from it find the GCC runtime DLLs. Edit the `mingw` path at the top of the script if your installation is elsewhere. `paq8sfx.exe` (statically linked), executables built with Visual Studio, and the libc-free stub do not need it.
+On Windows the test script adds the MinGW-w64 `bin` folder to the `PATH`, in case a program needs a DLL from there. The programs built from the current (C) source do not: the MinGW-w64 builds need no GCC runtime DLLs. Edit the `mingw` path at the top of the script if your installation is elsewhere.
 
 The test uses compression level `-8` and therefore needs about 1 GB of free memory.
 
@@ -86,9 +86,9 @@ The programs started from the AutoRun scripts are checked as well. Their exit co
 | --- | --- |
 | `crashed: illegal instruction` | The stub was built with `AVX2_ONLY` and the CPU has no AVX2. Rebuild the stub without it - see "Build settings" in the [main README](../README.md#build-settings). `paq8sfx` itself runs on any x64 CPU. |
 | `crashed: access violation` (Windows), `crashed: segmentation fault` (Linux) | A bug in the program, or a damaged archive or package. |
-| `could not start: DLL not found` (Windows) | The normal stub built with MinGW-w64 (or a package assembled from it) does not find the GCC runtime DLLs. Check the `mingw` path at the top of the test script. `paq8sfx.exe` is statically linked and does not need them. |
+| `could not start: DLL not found` (Windows) | A program does not find a DLL it was linked against: for the normal stub built with Visual Studio, the VC++ Redistributable is missing. For a MinGW-w64 build, check the `mingw` path at the top of the test script. |
 | `killed` (Linux) | Most likely not enough free memory. |
 | `exit code 1` from a `-d` command, right after a failed compression | A follow-up error: the archive is incomplete because the compression before it failed. Look at the first failure. |
-| A file is reported missing, but no program failed | The stub stays silent about its own errors by default. Comment out `#define SFX_SILENT` in `src/SystemDefines.hpp`, rebuild the stub and run the test again to see its messages. |
+| A file is reported missing, but no program failed | The stub stays silent about its own errors by default. Comment out `#define SFX_SILENT` in `src/SystemDefines.h`, rebuild the stub and run the test again to see its messages. |
 
 Failures usually come in groups, because the later steps depend on the earlier ones: the first `[FAILED]` line is the one to look at.

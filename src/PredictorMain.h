@@ -1,21 +1,19 @@
 ﻿#pragma once
 
-#include "SSE.hpp"
-#include "Shared.hpp"
-#include "model/ContextModel.hpp"
+#include "SSE.h"
+#include "Shared.h"
+#include "model/ContextModel.h"
 
 /**
  * A Predictor which estimates the probability that the next bit of uncompressed data is 1 
  * in the main data stream with the help of model(s), mixer(s) and an SSE stage. 
  */
-class PredictorMain {
-private:
-  MixerFactory* mixerFactory;
-  ContextModel* contextModel;
+typedef struct PredictorMain {
+  ContextModel contextModel;
   SSE sse;
-public:
-  PredictorMain(Shared* const sh);
-  ~PredictorMain();
   Shared* shared;
-  uint32_t p();
-};
+} PredictorMain;
+
+void PredictorMain_init(PredictorMain* predictor, Shared* sh);
+void PredictorMain_destroy(PredictorMain* predictor);
+uint32_t PredictorMain_p(PredictorMain* predictor);

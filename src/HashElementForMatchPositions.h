@@ -1,16 +1,18 @@
 ﻿#pragma once
 
-#include <cstdint>
+#include "SystemDefines.h"
 
-struct HashElementForMatchPositions {
-  static constexpr size_t N = 3;
-  uint32_t matchPositions[N];
-  void Add(uint32_t pos) {
-    if (N > 1) {
-      memmove(&matchPositions[1], &matchPositions[0], (N - 1) * sizeof(matchPositions[0]));
-    }
-    matchPositions[0] = pos;
+#define HashElementForMatchPositions_N 3
+
+typedef struct HashElementForMatchPositions {
+  uint32_t matchPositions[HashElementForMatchPositions_N];
+} HashElementForMatchPositions;
+
+_Static_assert(sizeof(HashElementForMatchPositions) == 3 * 4, "HashElementForMatchPositions must be 12 bytes");
+
+static inline void HashElementForMatchPositions_add(HashElementForMatchPositions* const e, const uint32_t pos) {
+  if (HashElementForMatchPositions_N > 1) {
+    memmove(&e->matchPositions[1], &e->matchPositions[0], (HashElementForMatchPositions_N - 1) * sizeof(e->matchPositions[0]));
   }
-};
-
-static_assert(sizeof(HashElementForMatchPositions) == 3 * 4);
+  e->matchPositions[0] = pos;
+}

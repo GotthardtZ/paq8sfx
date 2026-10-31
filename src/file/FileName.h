@@ -1,20 +1,18 @@
-#pragma once
+﻿#pragma once
 
-#include "fileUtils.hpp"
-#include "../String.hpp"
+#include "fileUtils.h"
+#include "../String.h"
 
 /**
- * A class to represent a filename.
+ * A filename: a String with a few functions for paths.
  */
-class FileName : public String {
-public:
-  explicit FileName(const char *s = "");
-  int lastSlashPos() const;
-  void keepFilename();
-  void keepPath();
+typedef String FileName;
 
-  /**
-    * Prepare path string for screen output.
-    */
-  void replaceSlashes();
-};
+int FileName_lastSlashPos(const FileName* name);
+void FileName_keepFilename(FileName* name);
+void FileName_keepPath(FileName* name);
+
+/**
+  * Prepare path string for screen output.
+  */
+void FileName_replaceSlashes(FileName* name);

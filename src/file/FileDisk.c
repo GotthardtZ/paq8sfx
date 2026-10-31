@@ -1,50 +1,58 @@
-﻿#include "FileDisk.hpp"
-#include "../SystemDefines.hpp"
+﻿#include "FileDisk.h"
 
-FileDisk::FileDisk() { file = nullptr; }
-
-FileDisk::~FileDisk() { close(); }
-
-bool FileDisk::open(const char *filename, bool mustSucceed) {
-  assert(file == nullptr);
-  file = openFile(filename, READ);
-  const bool success = (file != nullptr);
+static bool FileDisk_open(File* const f, const char* const filename, const bool mustSucceed) {
+  FileDisk* const self = (FileDisk*)f;
+  assert(self->file == NULL);
+  self->file = openFile(filename, FILE_READ);
+  const bool success = (self->file != NULL);
   if( !success && mustSucceed ) {
     printf("Unable to open file %s (%s)", filename, strerror(errno));
-    quit();
+    quit(NULL);
   }
   return success;
 }
 
-void FileDisk::create(const char *filename) {
-  assert(file == nullptr);
+static void FileDisk_create(File* const f, const char* const filename) {
+  FileDisk* const self = (FileDisk*)f;
+  assert(self->file == NULL);
   makeDirectories(filename);
-  file = openFile(filename, WRITE);
-  if( file == nullptr ) {
+  self->file = openFile(filename, FILE_WRITE);
+  if( self->file == NULL ) {
     printf("Unable to create file %s (%s)", filename, strerror(errno));
-    quit();
+    quit(NULL);
   }
 }
 
-void FileDisk::close() {
-  if( file != nullptr ) {
-    fclose(file);
+static void FileDisk_close(File* const f) {
+  FileDisk* const self = (FileDisk*)f;
+  if( self->file != NULL ) {
+    fclose(self->file);
   }
-  file = nullptr;
+  self->file = NULL;
 }
 
-int FileDisk::getchar() { return fgetc(file); }
+static int FileDisk_getChar(File* const f) { return fgetc(((FileDisk*)f)->file); }
 
-void FileDisk::putChar(uint8_t c) { fputc(c, file); }
+static void FileDisk_putChar(File* const f, const uint8_t c) { fputc(c, ((FileDisk*)f)->file); }
 
-uint64_t FileDisk::blockRead(uint8_t *ptr, uint64_t count) { return fread(ptr, 1, count, file); }
+static uint64_t FileDisk_blockRead(File* const f, uint8_t* const ptr, const uint64_t count) { return fread(ptr, 1, (size_t)count, ((FileDisk*)f)->file); }
 
-void FileDisk::blockWrite(uint8_t *ptr, uint64_t count) { fwrite(ptr, 1, count, file); }
+static void FileDisk_blockWrite(File* const f, uint8_t* const ptr, const uint64_t count) { fwrite(ptr, 1, (size_t)count, ((FileDisk*)f)->file); }
 
-void FileDisk::setpos(uint64_t newPos) { fseeko(file, newPos, SEEK_SET); }
+static void FileDisk_setpos(File* const f, const uint64_t newPos) { fseeko(((FileDisk*)f)->file, newPos, SEEK_SET); }
 
-void FileDisk::setEnd() { fseeko(file, 0, SEEK_END); }
+static void FileDisk_setEnd(File* const f) { fseeko(((FileDisk*)f)->file, 0, SEEK_END); }
 
-uint64_t FileDisk::curPos() { return ftello(file); }
+static uint64_t FileDisk_curPos(File* const f) { return ftello(((FileDisk*)f)->file); }
 
-bool FileDisk::eof() { return feof(file) != 0; }
+static bool FileDisk_eof(File* const f) { return feof(((FileDisk*)f)->file) != 0; }
+
+static const FileVtbl FileDisk_vtbl = {
+  FileDisk_open, FileDisk_create, FileDisk_close, FileDisk_getChar, FileDisk_putChar,
+  FileDisk_blockRead, FileDisk_blockWrite, FileDisk_setpos, FileDisk_setEnd, FileDisk_curPos, FileDisk_eof
+};
+
+void FileDisk_init(FileDisk* const f) {
+  f->base.vt = &FileDisk_vtbl;
+  f->file = NULL;
+}

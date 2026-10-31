@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "SystemDefines.h"
+
 ///////////////////////// SIMD Vectorization detection //////////////////////////////////
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
@@ -19,7 +21,7 @@
 
 // Define interface to xgetbv instruction
 #ifdef HAS_CPUID
-static unsigned long long xgetbv(unsigned long ctr) {
+static inline unsigned long long xgetbv(unsigned long ctr) {
 #if (defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 160040000) || (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 1200)
   return _xgetbv(ctr);
 #elif (defined(__GNUC__) || defined(__clang__))
@@ -29,7 +31,7 @@ static unsigned long long xgetbv(unsigned long ctr) {
   : "=a"(a), "=d"(d)
   : "c"(ctr)
   :);
-  return a | ((static_cast<uint64_t>(d)) << 32);
+  return a | (((uint64_t)d) << 32);
 #else
 #error Unknown compiler
 #endif
@@ -51,7 +53,7 @@ static unsigned long long xgetbv(unsigned long ctr) {
 10: AVX512 //AVX512F + AVX512BW
 11: NEON
 */
-static int simdDetect() {
+static inline int simdDetect(void) {
 #ifdef HAS_CPUID
   int cpuidResult[4] = {0, 0, 0, 0};
   cpuid(cpuidResult, 0); // call cpuid function 0 ("Get vendor ID and highest basic calling parameter")

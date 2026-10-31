@@ -1,8 +1,8 @@
 ﻿// The C library of the libc-free stub.
 //
-// These are the C and C++ library functions the stub calls, and nothing more.
+// These are the C library functions the stub calls, and nothing more.
 // They are the same for every operating system: everything they need from it
-// goes through the plat_* functions of Platform.hpp.
+// goes through the plat_* functions of Platform.h.
 //
 // The functions are as simple as they can be, not as fast as they can be:
 // files are not buffered, and every malloc asks the operating system for
@@ -13,7 +13,7 @@
 // Visual Studio project do that). Otherwise the compiler may replace the
 // body of memcpy by a call to memcpy.
 
-#include "Platform.hpp"
+#include "Platform.h"
 
 #if defined(SFX) && defined(SFX_FREESTANDING)
 
@@ -28,7 +28,6 @@
 #  pragma function(memcpy, memset, memmove, memcmp, strlen, strcmp)
 #endif
 
-extern "C" {
 
 // ------------------------------------------------------ memory and strings --
 // memcpy, memset, memmove and memcmp must exist even if no source file calls
@@ -108,7 +107,7 @@ static const size_t HEADER_SIZE = 16;
 void* malloc(size_t size) {
   const size_t total = size + HEADER_SIZE;
   void* header = plat_alloc(total);
-  if (!header) return nullptr;
+  if (!header) return NULL;
   *(size_t*)header = total;
   return (char*)header + HEADER_SIZE;
 }
@@ -127,10 +126,10 @@ void free(void* block) {
 // Callers only pass the FILE* back to these functions, so it can point to
 // our own struct instead of the C library's.
 
-struct StubFile {
+typedef struct StubFile {
   plat_file file;
   int       atEnd;   // a read has reached the end of the file
-};
+} StubFile;
 
 static StubFile* toStubFile(FILE* stream) { return (StubFile*)stream; }
 
@@ -138,9 +137,9 @@ static StubFile* toStubFile(FILE* stream) { return (StubFile*)stream; }
 // (create or empty the file). Files are always binary.
 FILE* fopen(const char* path, const char* mode) {
   const plat_file file = plat_open(path, mode[0] == 'w');
-  if (file == PLAT_NO_FILE) return nullptr;
+  if (file == PLAT_NO_FILE) return NULL;
   StubFile* f = (StubFile*)malloc(sizeof(StubFile));
-  if (!f) { plat_close(file); return nullptr; }
+  if (!f) { plat_close(file); return NULL; }
   f->file = file;
   f->atEnd = 0;
   return (FILE*)f;
@@ -197,7 +196,7 @@ char* fgets(char* line, int size, FILE* stream) {
     line[length++] = (char)c;
     if (c == '\n') break;
   }
-  if (length == 0) return nullptr;   // end of file
+  if (length == 0) return NULL;   // end of file
   line[length] = '\0';
   return line;
 }
@@ -205,7 +204,7 @@ char* fgets(char* line, int size, FILE* stream) {
 int feof(FILE* stream) { return toStubFile(stream)->atEnd; }
 
 // Moving in a file and asking for the position, with 64-bit offsets. The C
-// libraries name these two functions differently (see SystemDefines.hpp).
+// libraries name these two functions differently (see SystemDefines.h).
 #if defined(_WIN32)
 int __cdecl _fseeki64(FILE* stream, __int64 offset, int whence) {
 #else
@@ -227,27 +226,5 @@ off_t ftello(FILE* stream) {
 // -------------------------------------------------------------- the end ----
 
 void exit(int exitCode) { plat_exit(exitCode); }
-
-// The compiler registers the destructors of global objects with atexit (MSVC)
-// or __cxa_atexit (GCC, clang). The stub never runs them: when it ends, the
-// operating system takes back its memory and closes its files anyway.
-int   atexit(void (*)(void)) { return 0; }
-int   __cxa_atexit(void (*)(void*), void*, void*) { return 0; }
-void* __dso_handle = nullptr;
-
-// Called if a pure virtual function is ever called, which would be a bug.
-// (GCC and clang; the MSVC name is in Platform_Windows.cpp.)
-void __cxa_pure_virtual() { plat_exit(70); }
-
-} // extern "C"
-
-// ------------------------------------------------------- new and delete ----
-
-void* operator new(size_t size)   { return malloc(size); }
-void* operator new[](size_t size) { return malloc(size); }
-void  operator delete(void* p) noexcept           { free(p); }
-void  operator delete[](void* p) noexcept         { free(p); }
-void  operator delete(void* p, size_t) noexcept   { free(p); }
-void  operator delete[](void* p, size_t) noexcept { free(p); }
 
 #endif

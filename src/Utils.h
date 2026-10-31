@@ -1,12 +1,10 @@
 ﻿#pragma once
 
-#include "SystemDefines.hpp"
+#include "SystemDefines.h"
 
-inline int max(int a, int b) { return a > b ? a : b; }
+static inline int max(int a, int b) { return a > b ? a : b; }
 
-inline int min(int a, int b) {return a < b ? a : b; }
-
-//inline unsigned long long min(unsigned long long a, unsigned long long b) { return a < b ? a : b; }
+static inline int min(int a, int b) { return a < b ? a : b; }
 
 /**
  * Returns floor(log2(x)).
@@ -14,9 +12,9 @@ inline int min(int a, int b) {return a < b ? a : b; }
  * @param x
  * @return floor(log2(x))
  */
-inline uint32_t ilog2(uint32_t x) {
+static inline uint32_t ilog2(uint32_t x) {
 #ifdef _MSC_VER
-  DWORD tmp = 0;
+  unsigned long tmp = 0;
   if (x != 0) {
     _BitScanReverse(&tmp, x);
   }
@@ -31,12 +29,7 @@ inline uint32_t ilog2(uint32_t x) {
 #endif
 }
 
-
-template<typename T>
-constexpr bool isPowerOf2(T x) {
-  return ((x & (x - 1)) == 0);
-}
-
+#define isPowerOf2(x) ((((x) & ((x) - 1)) == 0))
 
 
 // Circular/wraparound distance on a 256-value ring
@@ -53,7 +46,7 @@ constexpr bool isPowerOf2(T x) {
 //   images with color-channel transform (b, g, r) -> (g, g-r, g-b): the 2nd and 3rd transformed components experience a wrap-around.
 // For multi-byte numeric data prediction:
 //   less significant bytes wrap around when the whole multi-byte value is increased/decreased sequentially.
-static int rabs(int x1, int x2) {
-  int d = int8_t(x1 - x2); // -128..127
+static inline int rabs(int x1, int x2) {
+  int d = (int8_t)(x1 - x2); // -128..127
   return d >= 0 ? d : -d; // abs(d) → 0..128
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -144,7 +144,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>FULL;WIN32;_DEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -157,11 +158,12 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>FULL;_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FULL;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <UndefinePreprocessorDefinitions>
       </UndefinePreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
@@ -183,7 +185,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SFX;WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <Optimization>MinSpace</Optimization>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
@@ -206,7 +209,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>FULL;WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -231,7 +235,8 @@
       <ConformanceMode>true</ConformanceMode>
       <UndefinePreprocessorDefinitions>
       </UndefinePreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -243,7 +248,6 @@
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <Optimization>MinSpace</Optimization>
     </ClCompile>
     <Link>
@@ -257,7 +261,7 @@
   </ItemDefinitionGroup>
   <!--
     Release-SFX-Free: the libc-free stub (x64 only). It is linked without the
-    C/C++ runtime library and imports kernel32.dll only; src/platform/ provides
+    C runtime library and imports kernel32.dll only; src/platform/ provides
     the C functions it needs. The settings that make this possible:
 
     Compiler
@@ -265,21 +269,18 @@
                              (not DLL imports), so that the functions of
                              src/platform/ are used. Nothing is linked from the CRT.
       /GS- /sdl- /guard:cf-  no security checks: they need support code from the CRT
-      /GR- /EHs-c-           no run-time type information, no exceptions
-      /Zc:threadSafeInit-    no thread-safe initialization of local static
-                             variables: it needs support code from the CRT
       /Gs1048576             no stack probes (calls to __chkstk, which is in the
                              CRT) for functions that use less than 1 MB of stack.
                              Safe, because the linker settings below commit the
                              whole 1 MB stack when the program starts.
     Linker
       /NODEFAULTLIB, kernel32.lib   link kernel32.dll only
-      /ENTRY:sfx_entry       the program starts in Platform_Windows.cpp
+      /ENTRY:sfx_entry       the program starts in Platform_Windows.c
       /STACK:1048576,1048576 1 MB of stack, committed at once (see /Gs)
       /FIXED /DYNAMICBASE:NO no relocation table (smaller; no ASLR for the stub)
       /MANIFEST:NO           no manifest; a console program does not need one
 
-    CRuntime.cpp and Platform_Windows.cpp are compiled without whole program
+    CRuntime.c and Platform_Windows.c are compiled without whole program
     optimization (see the two files in the list at the end).
   -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">
@@ -292,9 +293,10 @@
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>SFX;SFX_FREESTANDING;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <Optimization>MinSpace</Optimization>
-      <!-- /Ob1 measured smallest after UPX (30,720 vs 31,744 for /Ob0, 32,256 for /Ob2) -->
+      <!-- /Ob1 measured smallest after UPX (30,720 vs 31,744 for /Ob0, 32,256 for /Ob2; measured with the C++ version of the source) -->
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -304,10 +306,8 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <AdditionalOptions>/Zc:threadSafeInit- /Gs1048576 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Gs1048576 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -337,7 +337,8 @@
       <ConformanceMode>true</ConformanceMode>
       <UndefinePreprocessorDefinitions>
       </UndefinePreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <CompileAs>CompileAsC</CompileAs>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -349,7 +350,6 @@
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -361,132 +361,139 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AdaptiveMap.cpp" />
-    <ClCompile Include="APM.cpp" />
-    <ClCompile Include="APM1.cpp" />
-    <ClCompile Include="APMPost.cpp" />
-    <ClCompile Include="ArithmeticEncoder.cpp" />
-    <ClCompile Include="Block.cpp" />
-    <ClCompile Include="BlockType.cpp" />
-    <ClCompile Include="ContextMap2.cpp" />
-    <ClCompile Include="model\SimilarityEmaFunctionsFactory.cpp" />
-    <ClCompile Include="model\SimilarityEmaFunctions_AVX2.cpp" />
-    <ClCompile Include="model\SimilarityEmaFunctions_Scalar.cpp" />
-    <ClCompile Include="model\SimilarityEmaFunctions_SSE41.cpp" />
-    <ClCompile Include="model\SimilarityModel.cpp" />
-    <ClCompile Include="model\SimilarityModelPair.cpp" />
-    <ClCompile Include="ResidualMap.cpp" />
-    <ClCompile Include="Encoder.cpp" />
-    <ClCompile Include="file\File.cpp" />
-    <ClCompile Include="file\FileDisk.cpp" />
-    <ClCompile Include="file\FileName.cpp" />
-    <ClCompile Include="file\FileTmp.cpp" />
-    <ClCompile Include="Ilog.cpp" />
-    <ClCompile Include="IndirectMap.cpp" />
-    <ClCompile Include="Mixer.cpp" />
-    <ClCompile Include="MixerFactory.cpp" />
-    <ClCompile Include="Mixer_AVX2.cpp" />
-    <ClCompile Include="Mixer_Scalar.cpp" />
-    <ClCompile Include="Mixer_SSE2.cpp" />
-    <ClCompile Include="model\ChartModel.cpp" />
-    <ClCompile Include="model\ContextModel.cpp" />
-    <ClCompile Include="model\ContextModelGeneric.cpp" />
-    <ClCompile Include="model\ExeModel.cpp" />
-    <ClCompile Include="model\MatchInfo.cpp" />
-    <ClCompile Include="model\MatchModel.cpp" />
-    <ClCompile Include="model\NormalModel.cpp" />
-    <ClCompile Include="model\SparseBitModel.cpp" />
-    <ClCompile Include="model\SparseModel.cpp" />
-    <ClCompile Include="paq8sfx.cpp" />
-    <ClCompile Include="platform\CRuntime.cpp">
+    <ClCompile Include="AdaptiveMap.c" />
+    <ClCompile Include="APM.c" />
+    <ClCompile Include="APM1.c" />
+    <ClCompile Include="APMPost.c" />
+    <ClCompile Include="ArithmeticEncoder.c" />
+    <ClCompile Include="Array.c" />
+    <ClCompile Include="Block.c" />
+    <ClCompile Include="BlockType.c" />
+    <ClCompile Include="Bucket16.c" />
+    <ClCompile Include="ContextMap2.c" />
+    <ClCompile Include="DivisionTable.c" />
+    <ClCompile Include="Encoder.c" />
+    <ClCompile Include="Ilog.c" />
+    <ClCompile Include="IndirectMap.c" />
+    <ClCompile Include="Mixer.c" />
+    <ClCompile Include="Mixer_AVX2.c" />
+    <ClCompile Include="Mixer_Scalar.c" />
+    <ClCompile Include="Mixer_SSE2.c" />
+    <ClCompile Include="MixerFactory.c" />
+    <ClCompile Include="paq8sfx.c" />
+    <ClCompile Include="PredictorMain.c" />
+    <ClCompile Include="Random.c" />
+    <ClCompile Include="ResidualMap.c" />
+    <ClCompile Include="Shared.c" />
+    <ClCompile Include="Squash.c" />
+    <ClCompile Include="SSE.c" />
+    <ClCompile Include="StateMap.c" />
+    <ClCompile Include="StateTable.c" />
+    <ClCompile Include="Stretch.c" />
+    <ClCompile Include="String.c" />
+    <ClCompile Include="UpdateBroadcaster.c" />
+    <ClCompile Include="file\File.c" />
+    <ClCompile Include="file\FileDisk.c" />
+    <ClCompile Include="file\FileExeRead.c" />
+    <ClCompile Include="file\FileMemRead.c" />
+    <ClCompile Include="file\FileName.c" />
+    <ClCompile Include="file\FileTmp.c" />
+    <ClCompile Include="file\fileUtils.c" />
+    <ClCompile Include="filter\exe.c" />
+    <ClCompile Include="filter\Filters.c" />
+    <ClCompile Include="model\ChartModel.c" />
+    <ClCompile Include="model\ContextModel.c" />
+    <ClCompile Include="model\ContextModelGeneric.c" />
+    <ClCompile Include="model\ExeModel.c" />
+    <ClCompile Include="model\MatchInfo.c" />
+    <ClCompile Include="model\MatchModel.c" />
+    <ClCompile Include="model\NormalModel.c" />
+    <ClCompile Include="model\SimilarityEmaFunctions_AVX2.c" />
+    <ClCompile Include="model\SimilarityEmaFunctions_Scalar.c" />
+    <ClCompile Include="model\SimilarityEmaFunctions_SSE41.c" />
+    <ClCompile Include="model\SimilarityEmaFunctionsFactory.c" />
+    <ClCompile Include="model\SimilarityModel.c" />
+    <ClCompile Include="model\SimilarityModelPair.c" />
+    <ClCompile Include="model\SparseBitModel.c" />
+    <ClCompile Include="model\SparseModel.c" />
+    <ClCompile Include="platform\CRuntime.c">
       <!-- no whole program optimization (/GL): this file defines memcpy, memset and memmove, which MSVC refuses under /GL (error C2268) -->
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">false</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="platform\Platform_Linux.cpp" />
-    <ClCompile Include="platform\Platform_Windows.cpp">
-      <!-- no whole program optimization (/GL): the entry point and the constructor table must stay as they are written (the GCC builds use -fno-lto for the same reason) -->
+    <ClCompile Include="platform\Platform_Linux.c" />
+    <ClCompile Include="platform\Platform_Windows.c">
+      <!-- no whole program optimization (/GL): the entry point must stay as it is written (the GCC builds use -fno-lto for the same reason) -->
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release-SFX-Free|x64'">false</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="PredictorMain.cpp" />
-    <ClCompile Include="Random.cpp" />
-    <ClCompile Include="Shared.cpp" />
-    <ClCompile Include="Squash.cpp" />
-    <ClCompile Include="SSE.cpp" />
-    <ClCompile Include="StateMap.cpp" />
-    <ClCompile Include="StateTable.cpp" />
-    <ClCompile Include="Stretch.cpp" />
-    <ClCompile Include="String.cpp" />
-    <ClCompile Include="UpdateBroadcaster.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AdaptiveMap.hpp" />
-    <ClInclude Include="platform\Platform.hpp" />
-    <ClInclude Include="APM.hpp" />
-    <ClInclude Include="APM1.hpp" />
-    <ClInclude Include="APMPost.hpp" />
-    <ClInclude Include="ArithmeticEncoder.hpp" />
-    <ClInclude Include="Array.hpp" />
-    <ClInclude Include="Block.hpp" />
-    <ClInclude Include="BlockType.hpp" />
-    <ClInclude Include="Clz.hpp" />
-    <ClInclude Include="Bucket16.hpp" />
-    <ClInclude Include="ContextMap2.hpp" />
-    <ClInclude Include="model\SimilarityEmaFunctionsFactory.hpp" />
-    <ClInclude Include="model\SimilarityEmaFunctions_AVX2.hpp" />
-    <ClInclude Include="model\SimilarityEmaFunctions_Scalar.hpp" />
-    <ClInclude Include="model\SimilarityEmaFunctions_SSE41.hpp" />
-    <ClInclude Include="model\SimilarityModel.hpp" />
-    <ClInclude Include="model\SimilarityModelPair.hpp" />
-    <ClInclude Include="ResidualMap.hpp" />
-    <ClInclude Include="DivisionTable.hpp" />
-    <ClInclude Include="Encoder.hpp" />
-    <ClInclude Include="file\File.hpp" />
-    <ClInclude Include="file\FileDisk.hpp" />
-    <ClInclude Include="file\FileName.hpp" />
-    <ClInclude Include="file\FileTmp.hpp" />
-    <ClInclude Include="file\fileUtils.hpp" />
-    <ClInclude Include="file\fileUtils2.hpp" />
-    <ClInclude Include="file\FileExeRead.hpp" />
-    <ClInclude Include="file\FileMemRead.hpp" />
-    <ClInclude Include="filter\exe.hpp" />
-    <ClInclude Include="filter\Filter.hpp" />
-    <ClInclude Include="filter\Filters.hpp" />
-    <ClInclude Include="Hash.hpp" />
-    <ClInclude Include="HashElementForBitHistoryState.hpp" />
-    <ClInclude Include="HashElementForMatchPositions.hpp" />
-    <ClInclude Include="HashElementForContextMap.hpp" />
-    <ClInclude Include="Ilog.hpp" />
-    <ClInclude Include="IndirectMap.hpp" />
-    <ClInclude Include="IPredictor.hpp" />
-    <ClInclude Include="Mixer.hpp" />
-    <ClInclude Include="MixerFactory.hpp" />
-    <ClInclude Include="Mixer_AVX2.hpp" />
-    <ClInclude Include="Mixer_Scalar.hpp" />
-    <ClInclude Include="Mixer_SSE2.hpp" />
-    <ClInclude Include="model\ChartModel.hpp" />
-    <ClInclude Include="model\ContextModel.hpp" />
-    <ClInclude Include="model\ExeModel.hpp" />
-    <ClInclude Include="model\IContextModel.hpp" />
-    <ClInclude Include="model\MatchInfo.hpp" />
-    <ClInclude Include="model\MatchModel.hpp" />
-    <ClInclude Include="model\NormalModel.hpp" />
-    <ClInclude Include="model\SparseBitModel.hpp" />
-    <ClInclude Include="model\SparseModel.hpp" />
-    <ClInclude Include="PredictorMain.hpp" />
-    <ClInclude Include="Random.hpp" />
-    <ClInclude Include="RingBuffer.hpp" />
-    <ClInclude Include="Shared.hpp" />
-    <ClInclude Include="Simd.hpp" />
-    <ClInclude Include="SIMDType.hpp" />
-    <ClInclude Include="Squash.hpp" />
-    <ClInclude Include="SSE.hpp" />
-    <ClInclude Include="StateMap.hpp" />
-    <ClInclude Include="StateTable.hpp" />
-    <ClInclude Include="Stretch.hpp" />
-    <ClInclude Include="String.hpp" />
-    <ClInclude Include="SystemDefines.hpp" />
-    <ClInclude Include="UpdateBroadcaster.hpp" />
-    <ClInclude Include="Utils.hpp" />
+    <ClInclude Include="AdaptiveMap.h" />
+    <ClInclude Include="APM.h" />
+    <ClInclude Include="APM1.h" />
+    <ClInclude Include="APMPost.h" />
+    <ClInclude Include="ArithmeticEncoder.h" />
+    <ClInclude Include="Array.h" />
+    <ClInclude Include="Block.h" />
+    <ClInclude Include="BlockType.h" />
+    <ClInclude Include="Bucket16.h" />
+    <ClInclude Include="Clz.h" />
+    <ClInclude Include="ContextMap2.h" />
+    <ClInclude Include="DivisionTable.h" />
+    <ClInclude Include="Encoder.h" />
+    <ClInclude Include="Hash.h" />
+    <ClInclude Include="HashElementForContextMap.h" />
+    <ClInclude Include="HashElementForMatchPositions.h" />
+    <ClInclude Include="Ilog.h" />
+    <ClInclude Include="IndirectMap.h" />
+    <ClInclude Include="IPredictor.h" />
+    <ClInclude Include="Mixer.h" />
+    <ClInclude Include="Mixer_AVX2.h" />
+    <ClInclude Include="Mixer_Scalar.h" />
+    <ClInclude Include="Mixer_SSE2.h" />
+    <ClInclude Include="MixerFactory.h" />
+    <ClInclude Include="PredictorMain.h" />
+    <ClInclude Include="Random.h" />
+    <ClInclude Include="ResidualMap.h" />
+    <ClInclude Include="RingBuffer.h" />
+    <ClInclude Include="Shared.h" />
+    <ClInclude Include="Simd.h" />
+    <ClInclude Include="SIMDType.h" />
+    <ClInclude Include="Squash.h" />
+    <ClInclude Include="SSE.h" />
+    <ClInclude Include="StateMap.h" />
+    <ClInclude Include="StateTable.h" />
+    <ClInclude Include="Stretch.h" />
+    <ClInclude Include="String.h" />
+    <ClInclude Include="SystemDefines.h" />
+    <ClInclude Include="UpdateBroadcaster.h" />
+    <ClInclude Include="Utils.h" />
+    <ClInclude Include="file\File.h" />
+    <ClInclude Include="file\FileDisk.h" />
+    <ClInclude Include="file\FileExeRead.h" />
+    <ClInclude Include="file\FileMemRead.h" />
+    <ClInclude Include="file\FileName.h" />
+    <ClInclude Include="file\FileTmp.h" />
+    <ClInclude Include="file\fileUtils.h" />
+    <ClInclude Include="file\fileUtils2.h" />
+    <ClInclude Include="filter\exe.h" />
+    <ClInclude Include="filter\Filter.h" />
+    <ClInclude Include="filter\Filters.h" />
+    <ClInclude Include="model\ChartModel.h" />
+    <ClInclude Include="model\ContextModel.h" />
+    <ClInclude Include="model\ContextModelGeneric.h" />
+    <ClInclude Include="model\ExeModel.h" />
+    <ClInclude Include="model\MatchInfo.h" />
+    <ClInclude Include="model\MatchModel.h" />
+    <ClInclude Include="model\NormalModel.h" />
+    <ClInclude Include="model\SimilarityEmaFunctions_AVX2.h" />
+    <ClInclude Include="model\SimilarityEmaFunctions_Scalar.h" />
+    <ClInclude Include="model\SimilarityEmaFunctions_SSE41.h" />
+    <ClInclude Include="model\SimilarityEmaFunctionsFactory.h" />
+    <ClInclude Include="model\SimilarityModel.h" />
+    <ClInclude Include="model\SimilarityModelPair.h" />
+    <ClInclude Include="model\SparseBitModel.h" />
+    <ClInclude Include="model\SparseModel.h" />
+    <ClInclude Include="platform\Platform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

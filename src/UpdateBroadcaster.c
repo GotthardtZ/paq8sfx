@@ -1,15 +1,15 @@
-#include "UpdateBroadcaster.hpp"
+﻿#include "UpdateBroadcaster.h"
 
-void UpdateBroadcaster::subscribe(IPredictor *subscriber) {
-  subscribers[n] = subscriber;
-  n++;
-  assert(n < 1024);
+void UpdateBroadcaster_subscribe(UpdateBroadcaster* const ub, IPredictor* const subscriber) {
+  ub->subscribers[ub->n] = subscriber;
+  ub->n++;
+  assert(ub->n < 1024);
 }
 
-void UpdateBroadcaster::broadcastUpdate() {
-  for( int i = 0; i < n; i++ ) {
-    IPredictor *subscriber = subscribers[i];
-    subscriber->update();
+void UpdateBroadcaster_broadcastUpdate(UpdateBroadcaster* const ub) {
+  for( int i = 0; i < ub->n; i++ ) {
+    IPredictor* subscriber = ub->subscribers[i];
+    subscriber->update(subscriber);
   }
-  n = 0;
+  ub->n = 0;
 }
