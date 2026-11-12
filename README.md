@@ -224,7 +224,7 @@ Size of the stub in bytes after `upx --best --ultra-brute` (UPX 5.2.0), which is
 | Toolchain | Stub | Default | `AVX2_ONLY` | Extract-only | Extract-only + `AVX2_ONLY` | Needs at run time |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
 | Windows, MinGW-w64 (GCC 15.2.0) | libc-free | *25'088* | 23'552 | 24'064 | **23'040** | `kernel32.dll` only |
-| | normal | 30'720 | 29'696 | 30'208 | 29'184 | GCC runtime DLLs |
+| | normal | 30'720 | 29'696 | 30'208 | 29'184 | `msvcrt.dll` or the UCRT (part of Windows) |
 | Windows, VS 2022 (MSVC 19.44.35216) | libc-free | 31'232 | 29'696 | 32'768 | 29'184 | `kernel32.dll` only |
 | | normal | 33'280 | 31'744 | 30'208 | 31'232 | VC++ Redistributable |
 | | normal, x86 | 29'696 | n/a | 29'696 | n/a | VC++ Redistributable |
