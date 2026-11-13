@@ -12,7 +12,6 @@
 #   make stub-free       build the libc-free stub (Linux x64 or Windows x64)
 #   make test            build, then run the roundtrip test (needs ~1 GB RAM)
 #   make test-free       run the roundtrip test against the libc-free stub
-#   make upx             compress the stub with upx (do this before assembling)
 #   make clean           remove everything this Makefile created
 #   make CC=clang        use another compiler
 #   make CC=x86_64-w64-mingw32-gcc   cross-compile the Windows .exe files
@@ -136,7 +135,7 @@ ifeq ($(TARGET),windows)
   # Linked with kernel32.dll only; the program starts at sfx_entry
   # (Platform_Windows.c).
   FREE_EXTRA   += -D_CRTIMP=
-  # No relocation table (no ASLR for the stub): 512 bytes less before UPX.
+  # No relocation table (no ASLR for the stub): 512 bytes less.
   FREE_LDFLAGS := -nostdlib -static -Wl,--gc-sections -Wl,-e,sfx_entry \
                   -Wl,--subsystem,console -Wl,--disable-dynamicbase \
                   -Wl,--disable-reloc-section -s $(EXTRA_LDFLAGS)
@@ -180,7 +179,7 @@ endif
 
 # ----------------------------------------------------------------- targets --
 
-.PHONY: all paq8sfx stub stub-free test test-free upx clean
+.PHONY: all paq8sfx stub stub-free test test-free clean
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
@@ -264,9 +263,6 @@ ifeq ($(OS),Windows_NT)
 else
 	cd test && bash roundtrip_test_linux.sh nopause
 endif
-
-upx: $(STUB)
-	upx --best --ultra-brute $(STUB)
 
 clean:
 	rm -rf $(OBJDIR)

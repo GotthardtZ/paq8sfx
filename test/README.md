@@ -18,8 +18,6 @@ Build `paq8sfx` and `stub` first - see "How to compile" in the [main README](../
 | Linux | Run `sh build/build-linux-with-gcc.sh` or `sh build/build-linux-with-clang.sh`. |
 | Linux or Windows with MinGW-w64, Makefile | Run `make test` (Windows: `mingw32-make test`). It builds both programs and starts the test. |
 
-Optionally compress the stub with `upx --best --ultra-brute stub.exe` (Linux: `stub`) to test the stub the way it will be shipped.
-
 The test copies the two executables from the `build` folder to the `test` folder when it starts. If they are not in the `build` folder, the copies already present in the `test` folder are used.
 
 To test the libc-free stub, use `stub-free` (`stub-free.exe`) in place of `stub`: copy it over `stub` in the `build` folder, or run `make test-free`.

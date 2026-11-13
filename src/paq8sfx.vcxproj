@@ -296,7 +296,7 @@
       <LanguageStandard_C>stdc11</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
       <Optimization>MinSpace</Optimization>
-      <!-- /Ob1 measured smallest after UPX (30,720 vs 31,744 for /Ob0, 32,256 for /Ob2; measured with the C++ version of the source) -->
+      <!-- /Ob1 smallest code - measured with the C++ version of the source) -->
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>

@@ -22,7 +22,6 @@ rem *   (no arguments)   build paq8sfx.exe, stub.exe and stub-free.exe
 rem *   clean            remove everything the Makefile created (run it on its own)
 rem *   paq8sfx          build only paq8sfx.exe (also: stub, stub-free)
 rem *   V=1              show the full command lines
-rem *   upx              compress stub.exe with upx (upx.exe must be on the path)
 rem *
 rem * Stub settings: avx2_only and extract_only below (or AVX2_ONLY=1 / SFX_EXTRACT_ONLY=1
 rem * on the command line). Changing them rebuilds the stubs automatically.

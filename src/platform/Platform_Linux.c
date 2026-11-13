@@ -123,9 +123,7 @@ int chmod(const char* path, mode_t mode) {
 //
 // environ is placed in .data on purpose. Without it the stub has no
 // initialised data at all, its writable segment holds only .bss, and ld gives
-// that segment a file offset inside the ELF headers. UPX (the usual way to
-// ship the stub) cannot pack such a file: "EOFException: premature end of
-// file". One 8-byte variable in .data avoids that:
+// that segment a file offset inside the ELF headers. 
 __attribute__((section(".data.environ"))) char** environ = NULL;
 
 int execv(const char* path, char* const argv[]) {

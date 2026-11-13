@@ -20,7 +20,7 @@ Two terms are used throughout this document: an *archive* is a single compressed
 
 `paq8sfx` is most suitable for creating a self-extracting package for compression benchmarks in which the size of the decompressor's executable is counted in the size of the whole compressed package.
 
-For decompressors with small executables [UPX](https://upx.github.io/) will do fine, but for larger executables (such as cmix and its derivatives, or paq8px) `paq8sfx` is the better choice: the stub costs about 23-31 KB (the libc-free stub after UPX, see [Stub size](#stub-size)), and that is recovered as soon as `paq8sfx` saves more than that over UPX.
+The stub costs about 23-31 KB, and that is recovered as soon as `paq8sfx` saves more than that on the payload.
 
 It is not a general-purpose archiver:
 
@@ -111,7 +111,7 @@ A stub built with `SFX_EXTRACT_ONLY` (see [Build settings](#build-settings)) has
 - There is no AutoRun, no `-d` and no `-a`. Assemble its packages with `paq8sfx -a stubfile scriptfile`; the second line of the script is then an ordinary payload.
 - The exit code is 0 if everything was extracted, 1 otherwise.
 
-It is about 0.5-1 KB smaller after UPX than the full stub. Its main use is convenience: a self-extracting archive that anyone can run, without writing an AutoRun script.
+It is about 0.5-1 KB smaller than the full stub. Its main use is convenience: a self-extracting archive that anyone can run, without writing an AutoRun script.
 
 Example - package two files, one of them compressed (`stub-extract.exe` is an extract-only stub, renamed so it can sit next to the full one):
 
@@ -177,10 +177,10 @@ It is not necessarily the highest level that gives the best result for a given e
 The tests are about compressing the executables of data compressors (x86/x64). All tests were run on Windows.
 
 > [!NOTE]
-> The benchmark figures have not been updated for the current source yet: the paq8sfx rows include a 40'448-byte stub (see [Stub size](#stub-size) for the current ones), and the compressed sizes may differ slightly.
+> The paq8sfx rows include a 40'448-byte stub (see [Stub size](#stub-size)).
 
 - **UPX**: `upx --best --ultra-brute`, UPX 5.2.0. The result is a self-extracting executable; its decompression stub is already included in the compressed size.
-- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the UPX-compressed generic glibc-free static Windows x64 stub (25'088 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
+- **paq8sfx**: paq8sfx_v1, level `-12`. The total includes the generic glibc-free static Windows x64 stub (25'088 bytes, see [Stub size](#stub-size)), i.e. it is the size of the complete self-extracting package.
 - **paq8px**: paq8px_v216, level `-12`, shown for reference. Its result is not self-extracting: it needs the 1.3 MB paq8px executable to decompress, which is not counted here.
 
 **paq8px_v216.exe, [paq8px v216](https://github.com/hxim/paq8px/releases/tag/v216)** - 1'293'312 bytes
@@ -219,7 +219,7 @@ Even with its stub counted, `paq8sfx` is significantly better than UPX in every 
 
 ### Stub size
 
-Size of the stub in bytes after `upx --best --ultra-brute` (UPX 5.2.0), which is how it is meant to be shipped.
+Size of the stub in bytes.
 
 | Toolchain | Stub | Default | `AVX2_ONLY` | Extract-only | Extract-only + `AVX2_ONLY` | Needs at run time |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -282,7 +282,6 @@ make test            # build, then run the roundtrip test
 | `make test` | Builds both, then runs the roundtrip test (see [How to test](#how-to-test)). |
 | `make stub-free` | Builds the libc-free stub, `build/stub-free`. |
 | `make test-free` | Runs the roundtrip test with the libc-free stub. It copies `stub-free` over `build/stub`. |
-| `make upx` | Compresses the stub with `upx --best --ultra-brute`. |
 | `make clean` | Removes the object files (`build/obj`) and the executables. |
 | `make CC=clang` | Builds with clang instead of gcc. |
 | `make CC=x86_64-w64-mingw32-gcc` | Cross-compiles the Windows `.exe` files on Linux. |
@@ -331,16 +330,6 @@ All targets and settings of the table above work the same way; write `mingw32-ma
 - Use `mingw32-make`, not the `make` of MSYS or MSYS2.
 - If the build stops with `Compiler 'gcc' not found` although `gcc` is on the path, `mingw32-make` did not find `sh.exe`: check the Git `usr\bin` part of the path.
 
-### Making the stub smaller
-
-Use the [libc-free stub](#the-libc-free-stub), and compress it with UPX **before** assembling a package with it:
-
-```
-upx --best --ultra-brute stub-free.exe
-```
-
-With the Makefile, `make upx` compresses the normal stub (`build/stub`).
-
 ### The libc-free stub
 
 The libc-free stub is the same self-extractor - same modes, same package and archive format - built without the C runtime library. It is smaller, and a package made from it has no run-time dependencies. It exists for x64 Linux and x64 Windows.
@@ -365,7 +354,7 @@ Build notes:
 - The files in `src/platform/` are compiled only into the libc-free stub; in every other build they are empty.
 - `CRuntime.c` and the `Platform_*.c` files are compiled without link-time optimization (the compiler could otherwise replace the body of `memcpy` by a call to `memcpy`); the rest of the stub uses it.
 - No function of the stub may use more than 4 KB of stack. On Windows a larger stack frame needs a helper function (`__chkstk`) from the C runtime. The MinGW-w64 build does not link libgcc, so such a function fails to link (`undefined reference to ___chkstk_ms`) instead of slipping through. Large buffers are therefore `static` or allocated.
-- Visual Studio: the `Release-SFX-Free` configuration contains all required settings, with a comment explaining each. Inline function expansion is `/Ob1`, which gave the smallest stub after UPX.
+- Visual Studio: the `Release-SFX-Free` configuration contains all required settings, with a comment explaining each. Inline function expansion is `/Ob1`, which gave the smallest stub.
 
 ### Build settings
 
@@ -375,7 +364,7 @@ Three settings affect the stub. None of them changes the archive or the package 
 
 | | Not defined (the default) | Defined |
 | --- | --- | --- |
-| Stub | SSE2, SSE4.1, AVX2 and plain C code paths are all compiled in, and the best one is selected at run time. Runs on any x64 CPU. | Only the AVX2 code path is compiled in: about 0.8-1.6 KB smaller after UPX, but it **requires a CPU with AVX2**. |
+| Stub | SSE2, SSE4.1, AVX2 and plain C code paths are all compiled in, and the best one is selected at run time. Runs on any x64 CPU. | Only the AVX2 code path is compiled in: about 0.8-1.6 KB smaller, but it **requires a CPU with AVX2**. |
 
 `paq8sfx` (the compressor) is always built with every code path and selects one at run time, so it runs on any x64 CPU. All code paths give bit-identical results, so an archive made on a CPU without AVX2 decompresses with an `AVX2_ONLY` stub, and vice versa.
 
@@ -498,7 +487,7 @@ At startup the stub reads its own executable file, locates the footer from the l
 
 ## Todo and outlook
 
-- The emphasis was on keeping the code similar to paq8px, so that `paq8sfx` can still receive model updates from paq8px. Since the conversion to C an update has to be translated (see [What was kept from paq8px](#what-was-kept-from-paq8px)), but the files and functions still largely map one to one. On the other hand, keeping this similarity makes it difficult to truly optimize `paq8sfx` into a dedicated self-extracting archive or an executable compressor such as UPX.
+- The emphasis was on keeping the code similar to paq8px, so that `paq8sfx` can still receive model updates from paq8px. Since the conversion to C an update has to be translated (see [What was kept from paq8px](#what-was-kept-from-paq8px)), but the files and functions still largely map one to one. On the other hand, keeping this similarity makes it difficult to truly optimize `paq8sfx` into a dedicated self-extracting archive.
 - The full stub does not pass on the exit code of the AutoRun file on Windows.
 
 ## Security
