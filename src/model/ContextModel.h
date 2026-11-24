@@ -14,5 +14,4 @@ typedef struct ContextModel {
 } ContextModel;
 
 void ContextModel_init(ContextModel* cm, Shared* sh);
-void ContextModel_destroy(ContextModel* cm);
 int ContextModel_p(ContextModel* cm);

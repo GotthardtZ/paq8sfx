@@ -23,7 +23,6 @@ typedef struct NormalModel {
 } NormalModel;
 
 void NormalModel_init(NormalModel* nm, Shared* sh, uint64_t cmSize);
-void NormalModel_destroy(NormalModel* nm);
 void NormalModel_reset(NormalModel* nm);
 
 /**

@@ -17,17 +17,12 @@ void APM_init(APM* const apm, const Shared* const sh, const int n, const int s, 
   AdaptiveMap_init(&apm->am, sh, n * s);
   apm->N = n * s;
   apm->steps = s;
-  apm->cxt = 0;
   apm->limit = limit;
   assert(s > 4); // number of steps - must be a positive integer bigger than 4
   for( int i = 0; i < apm->N; ++i ) {
     int p = ((i % apm->steps * 2 + 1) * 4096) / (apm->steps * 2) - 2048;
     apm->am.t[i] = ((uint32_t)squash(p) << 20) + 6; //initial count: 6
   }
-}
-
-void APM_destroy(APM* const apm) {
-  AdaptiveMap_destroy(&apm->am);
 }
 
 int APM_p(APM* const apm, int pr, int cx) {

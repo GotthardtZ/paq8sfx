@@ -21,46 +21,37 @@ void StateMap_init(StateMap* const sm, const Shared* const sh, const int s, cons
   sm->limit = lim;
   sm->numContextSets = s;
   sm->numContextsPerSet = n;
-  sm->currentContextSetIndex = 0;
   sm->cxt = ARRAY_NEW(uint32_t, s);
   uint32_t* const t = sm->am.t;
   const uint32_t numContextSets = sm->numContextSets;
   const uint32_t numContextsPerSet = sm->numContextsPerSet;
   assert(numContextSets > 0 && numContextsPerSet > 0);
-  if( mapType == STATEMAP_BITHISTORY ) { // when the context is a bit history byte, we have a-priory for p
-    assert((numContextsPerSet & 255) == 0);
-    for (uint64_t cx = 0; cx < numContextsPerSet; ++cx) {
-      uint8_t state = cx & 255;
-      for (uint64_t s = 0; s < numContextSets; ++s) {
-        uint32_t n0 = StateTable_next(state, 2);
-        uint32_t n1 = StateTable_next(state, 3);
-        uint32_t p;
-        if (state < 205) {
-          n0 = n0 * 3 + 1;
-          n1 = n1 * 3 + 1;
-          p = ((n1 << 20) / (n0 + n1)) << 12;
-          //printf("%d %d\n", state, p >> 20); // verifying
-        }
-        else if(state < 253){
-          int incremental_state = (state - 205)>>2;
-          if (((state - 205) & 3) <= 1)
-            n0 = 29 + (1 << incremental_state);
-          else
-            n1 = 29 + (1 << incremental_state);
-          n0 = n0 * 3 + 1;
-          n1 = n1 * 3 + 1;
-          assert(n0 < 16384 && n1 < 16384);
-          p = ((n1 << 18) / (n0 + n1)) << 14 | min((n0 + n1) >> 3, 1023);
-          //printf("%d %d\n", state, p >> 20); // verifying
-        }
-        else { // 253, 254, 255
-          p = 2048 << 20; //unused states: p=0.5
-        }
-        t[cx * numContextSets + s] = p;
+  for (uint32_t cx = 0; cx < numContextsPerSet; ++cx) {
+    uint32_t p = 2048 << 20 | 0; // no a-priory in the general case: p=0.5, count=0
+    if( mapType == STATEMAP_BITHISTORY ) { // when the context is a bit history byte, we have a-priory for p
+      assert((numContextsPerSet & 255) == 0);
+      const uint8_t state = cx & 255;
+      uint32_t n0 = StateTable_next(state, 2);
+      uint32_t n1 = StateTable_next(state, 3);
+      if (state < 205) {
+        n0 = n0 * 3 + 1;
+        n1 = n1 * 3 + 1;
+        p = ((n1 << 20) / (n0 + n1)) << 12;
       }
+      else if (state < 253) {
+        int incremental_state = (state - 205) >> 2;
+        if (((state - 205) & 3) <= 1)
+          n0 = 29 + (1 << incremental_state);
+        else
+          n1 = 29 + (1 << incremental_state);
+        n0 = n0 * 3 + 1;
+        n1 = n1 * 3 + 1;
+        assert(n0 < 16384 && n1 < 16384);
+        p = ((n1 << 18) / (n0 + n1)) << 14 | min((n0 + n1) >> 3, 1023);
+      }
+      // else 253, 254, 255: unused states: p=0.5
     }
-  } else if( mapType == STATEMAP_RUN ) { // when the context is a run count: we have a-priory for p
-    for( uint32_t cx = 0; cx < numContextsPerSet; ++cx ) {
+    else if( mapType == STATEMAP_RUN ) { // when the context is a run count: we have a-priory for p
       const int predictedBit = (cx) & 1;
       const int uncertainty = (cx >> 1) & 1;
       //const int bp = (cx>>2)&1; // unused in calculation - a-priory does not seem to depend on bitPosition for a RunMap
@@ -73,21 +64,12 @@ void StateMap_init(StateMap* const sm, const Shared* const sh, const int s, cons
         n1 = tmp;
       }
       assert(n0 < 4096 && n1 < 4096);
-      for( uint64_t s = 0; s < numContextSets; ++s ) {
-        t[cx * numContextSets + s] = ((n1 << 20) / (n0 + n1)) << 12 | sm->limit;
-      }
+      p = ((n1 << 20) / (n0 + n1)) << 12 | sm->limit;
     }
-  } else { // no a-priory in the general case
-    for( uint32_t i = 0; i < numContextsPerSet * numContextSets; ++i ) {
-      t[i] = 2048<<20 | 0; //initial p=0.5, initial count=0
+    for (uint32_t s = 0; s < numContextSets; ++s) {
+      t[cx * numContextSets + s] = p;
     }
   }
-}
-
-void StateMap_destroy(StateMap* const sm) {
-  AdaptiveMap_destroy(&sm->am);
-  Array_delete(sm->cxt);
-  sm->cxt = NULL;
 }
 
 int StateMap_p1(StateMap* const sm, const uint32_t cx) {

@@ -120,6 +120,16 @@ else
   FULL_LDFLAGS := $(LDFLAGS)
 endif
 
+# The stubs on Linux: -z noseparate-code packs the code, the constants and the
+# data into consecutive pages instead of starting each of them on a page of its
+# own; without it the padding (up to 4 KB per segment) is a large part of the
+# stub.
+ifeq ($(TARGET),windows)
+  SFX_LDFLAGS := $(LDFLAGS)
+else
+  SFX_LDFLAGS := $(LDFLAGS) -Wl,-z,noseparate-code
+endif
+
 # --- the libc-free stub -----------------------------------------------------
 # Built like the normal stub, but without the features that need support code
 # from the C runtime: stack protector, _FORTIFY_SOURCE checks, unwind tables.
@@ -148,7 +158,7 @@ else
   # A fixed-address executable; it starts at _start (Platform_Linux.c).
   FREE_EXTRA   += -fno-pie -fno-pic
   FREE_LDFLAGS := -nostdlib -static $(NOPIE) -Wl,--gc-sections -Wl,-e,_start \
-                  -Wl,--build-id=none -s $(EXTRA_LDFLAGS)
+                  -Wl,--build-id=none -Wl,-z,noseparate-code -s $(EXTRA_LDFLAGS)
   FREE_LIBS    := $(LIBGCC)
   PLATFORM_SRC := Platform_Linux.c
 endif
@@ -197,7 +207,7 @@ $(PAQ8SFX): $(FULL_OBJS) $(OBJDIR)/full/.ldflags
 
 $(STUB): $(SFX_OBJS)
 	@echo "  LINK  $@"
-	$(Q)$(CC) $(SFX_CFLAGS) $(SFX_OBJS) $(LDFLAGS) -o $@
+	$(Q)$(CC) $(SFX_CFLAGS) $(SFX_OBJS) $(SFX_LDFLAGS) -o $@
 
 $(STUBFREE): $(FREE_OBJS)
 	@echo "  LINK  $@ (libc-free)"
@@ -241,8 +251,8 @@ endef
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
   $(call stamp,$(OBJDIR)/full/.flags,$(FULL_CFLAGS))
   $(call stamp,$(OBJDIR)/full/.ldflags,$(FULL_LDFLAGS))
-  $(call stamp,$(OBJDIR)/sfx/.flags,$(SFX_CFLAGS))
-  $(call stamp,$(OBJDIR)/free/.flags,$(FREE_CFLAGS) $(CRT_FILEFLAGS) $(PLAT_FILEFLAGS))
+  $(call stamp,$(OBJDIR)/sfx/.flags,$(SFX_CFLAGS) $(SFX_LDFLAGS))
+  $(call stamp,$(OBJDIR)/free/.flags,$(FREE_CFLAGS) $(CRT_FILEFLAGS) $(PLAT_FILEFLAGS) $(FREE_LDFLAGS))
 endif
 
 # The roundtrip test copies both programs from build/ itself.

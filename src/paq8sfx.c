@@ -307,19 +307,16 @@ static int DecompressArchive(File* archive, const char* outFile) {
   // Shared and PredictorMain hold the whole state of the model. Each archive
   // gets a new pair, so several archives can be decompressed in a row.
   // Shared is too large for the stack of the libc-free stub (see AppendFile).
-  Shared* shared = (Shared*)malloc(sizeof(Shared));
-  if (shared == NULL) quit("Out of memory.");
+  // Everything the model allocates (these two included) is freed at the end
+  // by Array_deleteAll().
+  Shared* shared = ARRAY_NEW(Shared, 1);
   Shared_init(shared, (uint8_t)level);
-  PredictorMain* predictorMain = (PredictorMain*)malloc(sizeof(PredictorMain));
-  if (predictorMain == NULL) quit("Out of memory.");
+  PredictorMain* predictorMain = ARRAY_NEW(PredictorMain, 1);
   PredictorMain_init(predictorMain, shared);
   Encoder en;
   Encoder_init(&en, predictorMain, DECOMPRESS, archive);
   decompressFile(shared, outFile, FDECOMPRESS, &en);
-  PredictorMain_destroy(predictorMain);
-  free(predictorMain);
-  Shared_destroy(shared);
-  free(shared);
+  Array_deleteAll();
   return 0;
 }
 
@@ -665,10 +662,11 @@ static int CompressOrDecompress(int argc, char** argv) {
 
   // Compress or decompress
 
-  Shared shared;
+  // The model objects must be in zeroed memory (see Array.h)
+  Shared* const shared = ARRAY_NEW(Shared, 1);
+  PredictorMain* const predictorMain = ARRAY_NEW(PredictorMain, 1);
   FileDisk archive;
   FileDisk_init(&archive);
-  PredictorMain predictorMain;
   Encoder en;
 
   if (command == CMD_COMPRESS) {
@@ -677,12 +675,12 @@ static int CompressOrDecompress(int argc, char** argv) {
     File_append(&archive.base, PROGNAME);
     File_putChar(&archive.base, (uint8_t)(level));
 
-    Shared_init(&shared, (uint8_t)level);
-    PredictorMain_init(&predictorMain, &shared);
-    Encoder_init(&en, &predictorMain, COMPRESS, &archive.base);
+    Shared_init(shared, (uint8_t)level);
+    PredictorMain_init(predictorMain, shared);
+    Encoder_init(&en, predictorMain, COMPRESS, &archive.base);
 
     printf("\nFilename: %s (%" PRIu64 " bytes)\n", String_c_str(&inputFile), inputSize);
-    compressfile(&shared, String_c_str(&inputFile), inputSize, &en);
+    compressfile(shared, String_c_str(&inputFile), inputSize, &en);
     Encoder_flush(&en);
     printf("-----------------------\n");
     printf("Total input size     : %" PRIu64 "\n", inputSize);
@@ -698,21 +696,20 @@ static int CompressOrDecompress(int argc, char** argv) {
     }
     printf("\n");
 
-    Shared_init(&shared, (uint8_t)level);
-    PredictorMain_init(&predictorMain, &shared);
-    Encoder_init(&en, &predictorMain, DECOMPRESS, &archive.base);
-    decompressFile(&shared, String_c_str(&outputFile), FDECOMPRESS, &en);
+    Shared_init(shared, (uint8_t)level);
+    PredictorMain_init(predictorMain, shared);
+    Encoder_init(&en, predictorMain, DECOMPRESS, &archive.base);
+    decompressFile(shared, String_c_str(&outputFile), FDECOMPRESS, &en);
   }
 
   File_close(&archive.base);
-  PredictorMain_destroy(&predictorMain);
-  Shared_destroy(&shared);
   String_destroy(&input);
   String_destroy(&output);
   String_destroy(&inputFile);
   String_destroy(&inputPath);
   String_destroy(&outputPath);
   String_destroy(&outputFile);
+  Array_deleteAll(); // the model
   return 0;
 }
 

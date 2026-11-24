@@ -51,8 +51,6 @@ typedef struct ResidualMap {
 
 // scale is usually 64
 void ResidualMap_init(ResidualMap* rm, const Shared* sh, int numContexts, int histogramsPerContext, int scale);
-void ResidualMap_destroy(ResidualMap* rm);
-
 void ResidualMap_setscale(ResidualMap* rm, int scale);
 
 // set: 'prediction' is the predicted byte value; 'distro' selects the histogram set for this context.

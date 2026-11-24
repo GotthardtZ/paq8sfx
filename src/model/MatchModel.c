@@ -17,21 +17,9 @@ void MatchModel_init(MatchModel* const mm, Shared* const sh, const uint64_t hash
   StateMap_init(&mm->stateMaps[1], sh, 1, 256 * 8 * 256, 1023, STATEMAP_GENERIC);
   StateMap_init(&mm->stateMaps[2], sh, 1, 256 * 256,     1023, STATEMAP_GENERIC);
   ContextMap2_init(&mm->cm, sh, mapmemorysize, MatchModel_nCM, 64);
-  memset(mm->ctx, 0, sizeof(mm->ctx));
   mm->hashBits = ilog2((uint32_t)hashtablesize);
-  memset(mm->matchCandidates, 0, sizeof(mm->matchCandidates));
-  mm->numberOfActiveCandidates = 0;
   assert(isPowerOf2(hashtablesize));
   assert(isPowerOf2(mapmemorysize));
-}
-
-void MatchModel_destroy(MatchModel* const mm) {
-  Array_delete(mm->hashtable);
-  mm->hashtable = NULL;
-  for (int i = 0; i < nST; i++) {
-    StateMap_destroy(&mm->stateMaps[i]);
-  }
-  ContextMap2_destroy(&mm->cm);
 }
 
 static bool isMatch(const MatchModel* const mm, const uint32_t pos, const uint32_t MINLEN) {
@@ -89,27 +77,15 @@ void MatchModel_update(MatchModel* const mm) {
   if( bpos == 0 ) {
     
     INJECT_SHARED_pos
-    uint64_t hash;
-    HashElementForMatchPositions* matches;
-
-    hash = shared->State.NormalModel.cxt[LEN3];
-    matches = &mm->hashtable[finalize64(hash, mm->hashBits)];
-    if (mm->numberOfActiveCandidates < N)
-      AddCandidates(mm, matches, LEN3); //longest
-    HashElementForMatchPositions_add(matches, pos);
-
-    hash = shared->State.NormalModel.cxt[LEN2];
-    matches = &mm->hashtable[finalize64(hash, mm->hashBits)];
-    if (mm->numberOfActiveCandidates < N)
-      AddCandidates(mm, matches, LEN2); //middle
-    HashElementForMatchPositions_add(matches, pos);
-
-    hash = shared->State.NormalModel.cxt[LEN1];
-    matches = &mm->hashtable[finalize64(hash, mm->hashBits)];
-    if (mm->numberOfActiveCandidates < N)
-      AddCandidates(mm, matches, LEN1); //shortest
-    HashElementForMatchPositions_add(matches, pos);
-
+    // the context hashes of the normal model for the 3 lengths, longest first
+    static const uint8_t lengths[3] = { LEN3, LEN2, LEN1 };
+    for (int k = 0; k < 3; k++) {
+      const uint32_t len = lengths[k];
+      HashElementForMatchPositions* const matches = &mm->hashtable[finalize64(shared->State.NormalModel.cxt[len], mm->hashBits)];
+      if (mm->numberOfActiveCandidates < N)
+        AddCandidates(mm, matches, len);
+      HashElementForMatchPositions_add(matches, pos);
+    }
     INJECT_SHARED_buf
     for (size_t i = 0; i < mm->numberOfActiveCandidates; i++) {
       mm->matchCandidates[i].expectedByte = RingBuffer_at(buf, mm->matchCandidates[i].index);
@@ -156,6 +132,8 @@ void MatchModel_mix(MatchModel* const mm, Mixer* const m) {
   
   const int isUncertain = (int)(n0 != 0 && n1 != 0);
 
+  // the mixer inputs: length (2), then 2 for each StateMap; 0 when not used
+  int in[2 + 2 * nST] = { 0 };
   uint32_t denselength = 0; // 0..27
   if (length != 0) {
     if (length <= 16) {
@@ -166,12 +144,9 @@ void MatchModel_mix(MatchModel* const mm, Mixer* const m) {
     mm->ctx[0] = 1 + ((denselength << 4) | (expectedBit << 3) | bpos); // 1 .. 28*2*8+1
     mm->ctx[1] = 1 + ((expectedByte << 11) | (bpos << 8) | c1);        // 1 .. 256*8*256+1
     const int sign = 2 * expectedBit - 1;
-    Mixer_add(m, sign * (min(length, 32) << 5)); // +/- 32..1024
-    Mixer_add(m, sign * (Ilog_log(min(length, 65535)) << 2)); // +/-  0..1024
-  } else { // no match at all or delta mode
-    Mixer_add(m, 0);
-    Mixer_add(m, 0);
-  }
+    in[0] = sign * (min(length, 32) << 5); // +/- 32..1024
+    in[1] = sign * (Ilog_log(min(length, 65535)) << 2); // +/-  0..1024
+  } // else: no match at all or delta mode
 
   if( isInDeltaMode ) { // delta mode: helps predicting the remaining bits of a character when a mismatch occurs
     mm->ctx[2] = (expectedByte << 8) | c0;
@@ -181,30 +156,25 @@ void MatchModel_mix(MatchModel* const mm, Mixer* const m) {
     const uint32_t c = mm->ctx[i];
     if( c != 0 ) {
       const int p1 = StateMap_p1(&mm->stateMaps[i], c - 1);
-      const int st = stretch(p1);
-      Mixer_add(m, st >> 2);
-      Mixer_add(m, (p1 - 2048) >> 3);
-    } else {
-      Mixer_add(m, 0);
-      Mixer_add(m, 0);
+      in[2 + i * 2] = stretch(p1) >> 2;
+      in[3 + i * 2] = (p1 - 2048) >> 3;
     }
+  }
+  for (int i = 0; i < 2 + 2 * nST; i++) {
+    Mixer_add(m, in[i]);
   }
 
   const uint32_t length2 = min(length >> 2, 3); //0-3 (2 bits)
 
-  const uint8_t mode3 = 
+  // the mode: no match (0), delta (1), pre-recovery (2), recovery (3), or a match (4..)
+  const uint32_t mode =
     isInNoMatchMode ? 0 :
     isInDeltaMode ? 1 :
     isInPreRecoveryMode ? 2 :
     isInRecoveryMode ? 3 :
-    4 + length2; //0..7 //we don't need expectedBit and isUncertain as this context is used on the Byte-level
-  
-  const uint32_t mode5 =
-    isInNoMatchMode ? 0 :
-    isInDeltaMode ? 1 :
-    isInPreRecoveryMode ? 2 :
-    isInRecoveryMode ? 3 :
-    4 + (length2 << 2 | expectedBit << 1 | isUncertain); //0..19
+    4;
+  const uint8_t mode3 = mode < 4 ? mode : 4 + length2; //0..7 //we don't need expectedBit and isUncertain as this context is used on the Byte-level
+  const uint32_t mode5 = mode < 4 ? mode : 4 + (length2 << 2 | expectedBit << 1 | isUncertain); //0..19
 
   //bytewise contexts
   INJECT_SHARED_c4

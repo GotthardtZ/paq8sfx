@@ -1,4 +1,5 @@
 ﻿#include "SimilarityEmaFunctions_SSE41.h"
+#include "SimilarityEmaFunctions_Scalar.h" // SimilarityEma_top2()
 
 #if defined(X64_SIMD_AVAILABLE) && !defined(AVX2_ONLY)
 
@@ -16,49 +17,36 @@
 // pack results back to uint16 with _mm_packus_epi32 (requires SSE4.1).
 
 TARGET("sse4.1")
-void SimilarityEmaFunctions_SSE41_update_and_find(
-  uint16_t* ema_buf1,
-  uint16_t* ema_buf2,
-  const uint8_t* history_buffer_ptr,
-  const size_t count,
-  const uint8_t c1,
-  const uint32_t ema_alpha1,
-  const uint32_t ema_alpha2,
-  uint32_t* match_index1,
-  uint32_t* match_index2,
-  uint32_t* match_score1,
-  uint32_t* match_score2
-) {
+void SimilarityEmaFunctions_SSE41_update(
+  uint16_t* ema_buf,                  // [in/out] 8.8 fixed-point EMA buffer, length >= count
+  const uint8_t* history_buffer_ptr,  // contiguous portion of the ring buffer with history data, length = count
+  const size_t count,                 // number of distances
+  const uint8_t c1,                   // incoming byte to be used for calculating the distances (basis of the update)
+  const uint32_t ema_alpha,           // EMA alpha (fixed-point, denominator 64)
+  uint32_t* match_index,              // [out] top-2 ema_buf indices (best, second-best)
+  uint32_t* match_score)              // [out] top-2 ema_buf scores  (best, second-best)
+{
 
-  match_index1[0] = 0;
-  match_index1[1] = 0;
-  match_score1[0] = UINT16_MAX;
-  match_score1[1] = UINT16_MAX;
+  match_index[0] = 0;
+  match_index[1] = 0;
+  match_score[0] = UINT16_MAX;
+  match_score[1] = UINT16_MAX;
 
-  match_index2[0] = 0;
-  match_index2[1] = 0;
-  match_score2[0] = UINT16_MAX;
-  match_score2[1] = UINT16_MAX;
-
-  const uint32_t ema_one_minus_alpha1 = 64 - ema_alpha1;
-  const uint32_t ema_one_minus_alpha2 = 64 - ema_alpha2;
+  const uint32_t ema_one_minus_alpha = 64 - ema_alpha;
 
   // rabs is computed as abs_epi8(sub_epi8(pred, c1)), then zero-extended to 32-bit.
   // This mirrors: abs(int8_t(x1 - x2));
   const __m128i vc1_bytes = _mm_set1_epi8((int8_t)c1);
 
-  const __m128i va1 = _mm_set1_epi32(ema_alpha1);
-  const __m128i vb1 = _mm_set1_epi32(ema_one_minus_alpha1);
-  const __m128i va2 = _mm_set1_epi32(ema_alpha2);
-  const __m128i vb2 = _mm_set1_epi32(ema_one_minus_alpha2);
+  const __m128i va = _mm_set1_epi32(ema_alpha);
+  const __m128i vb = _mm_set1_epi32(ema_one_minus_alpha);
 
   // SSE has no unsigned 16-bit compare; simulate u16 < by XORing both sides with 0x8000
   // to shift the unsigned range into the signed range before _mm_cmplt_epi16.
   const __m128i v_sign_flip = _mm_set1_epi16((int16_t)0x8000);
 
   // Current second-best thresholds for fast reject.
-  __m128i vbest2_r1 = _mm_set1_epi16((int16_t)match_score1[1]);
-  __m128i vbest2_r2 = _mm_set1_epi16((int16_t)match_score2[1]);
+  __m128i vbest2 = _mm_set1_epi16((int16_t)match_score[1]);
 
   assert(count % 8 == 0);
   for (size_t i = 0; i < count; i += 8) {
@@ -74,88 +62,43 @@ void SimilarityEmaFunctions_SSE41_update_and_find(
     __m128i cur_lo = _mm_slli_epi32(abs_lo, 8); // 8.8 fixed-point, 0..32768
     __m128i cur_hi = _mm_slli_epi32(abs_hi, 8);
 
-    // --- Load + Update EMA1 ---
-    __m128i ema16_1 = _mm_load_si128((const __m128i*)(ema_buf1 + i));
-    __m128i ema_lo1 = _mm_cvtepu16_epi32(ema16_1);
-    __m128i ema_hi1 = _mm_cvtepu16_epi32(_mm_srli_si128(ema16_1, 8));
+    // --- Load + Update EMA ---
+    __m128i ema16 = _mm_load_si128((const __m128i*)(ema_buf + i));
+    __m128i ema_lo = _mm_cvtepu16_epi32(ema16);
+    __m128i ema_hi = _mm_cvtepu16_epi32(_mm_srli_si128(ema16, 8));
 
-    __m128i tmp_lo1 = _mm_add_epi32(_mm_mullo_epi32(ema_lo1, vb1),
-      _mm_mullo_epi32(cur_lo, va1));
-    __m128i tmp_hi1 = _mm_add_epi32(_mm_mullo_epi32(ema_hi1, vb1),
-      _mm_mullo_epi32(cur_hi, va1));
+    __m128i tmp_lo = _mm_add_epi32(_mm_mullo_epi32(ema_lo, vb),
+      _mm_mullo_epi32(cur_lo, va));
+    __m128i tmp_hi = _mm_add_epi32(_mm_mullo_epi32(ema_hi, vb),
+      _mm_mullo_epi32(cur_hi, va));
 
-    __m128i res_lo1 = _mm_srli_epi32(tmp_lo1, 6);
-    __m128i res_hi1 = _mm_srli_epi32(tmp_hi1, 6);
-    __m128i new_ema1 = _mm_packus_epi32(res_lo1, res_hi1);
-
-    // --- Load + Update EMA2 ---
-    __m128i ema16_2 = _mm_load_si128((const __m128i*)(ema_buf2 + i));
-    __m128i ema_lo2 = _mm_cvtepu16_epi32(ema16_2);
-    __m128i ema_hi2 = _mm_cvtepu16_epi32(_mm_srli_si128(ema16_2, 8));
-
-    __m128i tmp_lo2 = _mm_add_epi32(_mm_mullo_epi32(ema_lo2, vb2),
-      _mm_mullo_epi32(cur_lo, va2));
-    __m128i tmp_hi2 = _mm_add_epi32(_mm_mullo_epi32(ema_hi2, vb2),
-      _mm_mullo_epi32(cur_hi, va2));
-
-    __m128i res_lo2 = _mm_srli_epi32(tmp_lo2, 6);
-    __m128i res_hi2 = _mm_srli_epi32(tmp_hi2, 6);
-    __m128i new_ema2 = _mm_packus_epi32(res_lo2, res_hi2);
+    __m128i res_lo = _mm_srli_epi32(tmp_lo, 6);
+    __m128i res_hi = _mm_srli_epi32(tmp_hi, 6);
+    __m128i new_ema = _mm_packus_epi32(res_lo, res_hi);
 
     // --- Store updated EMA values ---
-    _mm_store_si128((__m128i*)(ema_buf1 + i), new_ema1);
-    _mm_store_si128((__m128i*)(ema_buf2 + i), new_ema2);
+    _mm_store_si128((__m128i*)(ema_buf + i), new_ema);
 
     // --- Fast reject: skip scalar top-2 update if no lane beat the current second-best ---
-    __m128i cmp1 = _mm_cmpgt_epi16(_mm_sub_epi16(vbest2_r1, v_sign_flip),
-      _mm_sub_epi16(new_ema1, v_sign_flip));
+    __m128i cmp = _mm_cmpgt_epi16(_mm_sub_epi16(vbest2, v_sign_flip),
+      _mm_sub_epi16(new_ema, v_sign_flip));
 
-    __m128i cmp2 = _mm_cmpgt_epi16(_mm_sub_epi16(vbest2_r2, v_sign_flip),
-      _mm_sub_epi16(new_ema2, v_sign_flip));
-
-    if (_mm_testz_si128(cmp1, cmp1) && _mm_testz_si128(cmp2, cmp2))
+    if (_mm_testz_si128(cmp, cmp))
       continue;
 
     // Fast reject: we reach here only if at least one lane beat the second-best
     // which is roughly 30/8192 of the times
 
     // --- Scalar top-2 update ---
-    // Iterates longest-to-shortest; on equal scores, shorter periods win ties.
     for (int k = 0; k < 8; k++) {
       uint32_t idx = (uint32_t)(i + k);
-      uint32_t r1 = ema_buf1[idx];
-      uint32_t r2 = ema_buf2[idx];
-
-      if (r1 < match_score1[1]) {
-        if (r1 < match_score1[0]) {
-          match_index1[1] = match_index1[0];
-          match_score1[1] = match_score1[0];
-          match_index1[0] = idx;
-          match_score1[0] = r1;
-        }
-        else {
-          match_index1[1] = idx;
-          match_score1[1] = r1;
-        }
-      }
-
-      if (r2 < match_score2[1]) {
-        if (r2 < match_score2[0]) {
-          match_index2[1] = match_index2[0];
-          match_score2[1] = match_score2[0];
-          match_index2[0] = idx;
-          match_score2[0] = r2;
-        }
-        else {
-          match_index2[1] = idx;
-          match_score2[1] = r2;
-        }
-      }
+      uint32_t r = ema_buf[idx];
+      // Iterates longest-to-shortest; on equal scores, shorter periods win ties.
+      SimilarityEma_top2(r, idx, match_index, match_score);
     }
 
     // Refresh thresholds
-    vbest2_r1 = _mm_set1_epi16((int16_t)match_score1[1]);
-    vbest2_r2 = _mm_set1_epi16((int16_t)match_score2[1]);
+    vbest2 = _mm_set1_epi16((int16_t)match_score[1]);
   }
 }
 

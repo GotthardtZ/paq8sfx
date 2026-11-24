@@ -26,17 +26,6 @@ static inline void RingBuffer_setSize(RingBuffer* const rb, const uint32_t newSi
   rb->mask = newSize - 1;
 }
 
-/**
-  * Frees the buffer.
-  */
-static inline void RingBuffer_destroy(RingBuffer* const rb) {
-  Array_delete(rb->b);
-  rb->b = NULL;
-  rb->bufferSize = 0;
-  rb->offset = 0;
-  rb->mask = 0;
-}
-
 static inline uint32_t RingBuffer_getpos(const RingBuffer* const rb) {
   return rb->offset;
 }

@@ -6,11 +6,6 @@ void AdaptiveMap_init(AdaptiveMap* const am, const Shared* const sh, const int n
   am->dt = DivisionTable_getDT();
 }
 
-void AdaptiveMap_destroy(AdaptiveMap* const am) {
-  Array_delete(am->t);
-  am->t = NULL;
-}
-
 // sum = n0+n1
 // p1 = (n1+0.5) / (n0+n1+1) [Laplace smoothed]
 //

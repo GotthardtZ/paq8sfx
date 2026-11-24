@@ -8,14 +8,13 @@
 // Note: some of the (indirect) contexts below are independent from the chart model 
 
 void ChartModel_init(ChartModel* const cmodel, const Shared* const sh, const uint64_t size) {
-  memset(cmodel, 0, sizeof(ChartModel));
   cmodel->shared = sh;
   ContextMap2_init(&cmodel->cm, sh, size, ChartModel_nCM, 64);
 }
 
-void ChartModel_destroy(ChartModel* const cmodel) {
-  ContextMap2_destroy(&cmodel->cm);
-}
+// The selected bits of the sparse indirect bit contexts: 3 fields each
+static const uint8_t chartBitShifts[3][3] = { { 15, 10, 5 }, { 12, 7, 2 }, { 10, 4, 0 } };
+static const uint16_t chartBitMasks[3][3] = { { 0x1c0, 0x38, 0x07 }, { 0x1c0, 0x38, 0x07 }, { 0x30, 0x0c, 0x03 } };
 
 void ChartModel_mix(ChartModel* const cmodel, Mixer* const m) {
   const Shared* const shared = cmodel->shared;
@@ -36,40 +35,24 @@ void ChartModel_mix(ChartModel* const cmodel, Mixer* const m) {
     w4 = w4 & 0xff000000;
 
     uint32_t a0 = (c4 >> 5) & 0x00070707; // bits 0-2 (top 3 bits)
-
     uint64_t h = 0; // context index for hash
 
-    // sparse indirect bit contexts
-    uint32_t 
-      b[3] = { // content: 9 selected bits from c4&0xffffff00
-          (c4 >> 23) & 0x01c0 |
-          (c4 >> 18) & 0x38 |
-          (c4 >> 13) & 0x07,
-          (c4 >> 20) & 0x1c0 |
-          (c4 >> 15) & 0x38 |
-          (c4 >> 10) & 0x07,
-          (c4 >> 18) & 0x30 |
-          (c4 >> 12) & 0x0c |
-          (c4 >> 8) & 3 },
-      d[3] = {  // content: 9 selected bits from c4&0x00ffffff
-          (c4 >> 15) & 0x1c0 |
-          (c4 >> 10) & 0x38 |
-          (c4 >> 5) & 0x07,
-          (c4 >> 12) & 0x1c0 |
-          (c4 >> 7) & 0x38 |
-          (c4 >> 2) & 0x07,
-          (c4 >> 10) & 0x30 |
-          (c4 >> 4) & 0x0c |
-          c4 & 3 };
-
+    // sparse indirect bit contexts: 9 selected bits from 3 bytes,
+    // f from c4&0xffffff00 (the bytes before the last one), e from c4&0x00ffffff
+    const uint32_t wsel[4] = { 0, w2, w3, w4 };
     for (int i = 0; i < 3; i++) {
-      uint32_t f = i << 9 | b[i];
-      const uint8_t g = cmodel->indirect1[i << 9 | d[i]]; // context from indirect
-      cmodel->indirect1[f] = c1; // update indirect
-      ContextMap2_set(cm, hash2(++h, g)); 
-      ContextMap2_set(cm, hash2(++h, w2 | g));
-      ContextMap2_set(cm, hash2(++h, w3 | g));
-      ContextMap2_set(cm, hash2(++h, w4 | g));
+      uint32_t f = 0, e = 0;
+      for (int k = 0; k < 3; k++) {
+        const uint32_t mask = chartBitMasks[i][k];
+        const int shift = chartBitShifts[i][k];
+        f |= ((c4 >> 8) >> shift) & mask;
+        e |= (c4 >> shift) & mask;
+      }
+      const uint8_t g = cmodel->indirect1[i << 9 | e]; // context from indirect
+      cmodel->indirect1[i << 9 | f] = c1; // update indirect
+      for (int k = 0; k < 4; k++) {
+        ContextMap2_set(cm, hash2(++h, wsel[k] | g));
+      }
     }
 
     const uint8_t buf2 = (c4 >> 8) & 0xff;

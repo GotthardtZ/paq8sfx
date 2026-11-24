@@ -1,10 +1,8 @@
-﻿#include "ContextModelGeneric.h"
+﻿#include "../Array.h"
+#include "ContextModelGeneric.h"
 
 ContextModelGeneric* ContextModelGeneric_new(Shared* const sh) {
-  ContextModelGeneric* const cmg = (ContextModelGeneric*)calloc(1, sizeof(ContextModelGeneric));
-  if (cmg == NULL) {
-    quit("Out of memory.");
-  }
+  ContextModelGeneric* const cmg = ARRAY_NEW(ContextModelGeneric, 1); // zeroed
   cmg->shared = sh;
   cmg->m = MixerFactory_createMixer(sh,
     1 +  //bias
@@ -31,21 +29,6 @@ ContextModelGeneric* ContextModelGeneric_new(Shared* const sh) {
   cmg->exeModel = ExeModel_new(sh, sh->mem * 4);
   Mixer_setScaleFactor(cmg->m, 1150, 100);
   return cmg;
-}
-
-void ContextModelGeneric_delete(ContextModelGeneric* const cmg) {
-  if (cmg == NULL) {
-    return;
-  }
-  Mixer_delete(cmg->m);
-  NormalModel_destroy(&cmg->normalModel);
-  MatchModel_destroy(&cmg->matchModel);
-  SparseBitModel_destroy(&cmg->sparseBitModel);
-  SparseModel_destroy(&cmg->sparseModel);
-  ChartModel_destroy(&cmg->chartModel);
-  SimilarityModelPair_destroy(&cmg->similarityModelPair);
-  ExeModel_delete(cmg->exeModel);
-  free(cmg);
 }
 
 int ContextModelGeneric_p(ContextModelGeneric* const cmg) {

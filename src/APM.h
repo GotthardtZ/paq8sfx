@@ -21,8 +21,6 @@ typedef struct APM {
   * @param s the number of steps
   */
 void APM_init(APM* apm, const Shared* sh, int n, int s, int limit);
-void APM_destroy(APM* apm);
-
 /**
   * Returns a new probability (0..4095) like with @ref StateMap.
   * cx=(0..n-1) is the context.

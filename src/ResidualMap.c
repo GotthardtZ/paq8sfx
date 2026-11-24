@@ -39,20 +39,10 @@ void ResidualMap_init(ResidualMap* const rm, const Shared* const sh, const int n
   rm->scale = scale;
   rm->numContexts = numContexts;
   rm->histogramsPerContext = histogramsPerContext;
-  rm->currentContextIndex = 0;
   rm->predictions = ARRAY_NEW(short, numContexts);
   rm->bases = ARRAY_NEW(uint32_t, numContexts);
   rm->sums = ARRAY_NEW(uint16_t, BINS * numContexts * histogramsPerContext);
   rm->dt = DivisionTable_getDT();
-}
-
-void ResidualMap_destroy(ResidualMap* const rm) {
-  Array_delete(rm->predictions);
-  Array_delete(rm->bases);
-  Array_delete(rm->sums);
-  rm->predictions = NULL;
-  rm->bases = NULL;
-  rm->sums = NULL;
 }
 
 void ResidualMap_setscale(ResidualMap* const rm, const int scale) {
@@ -71,6 +61,14 @@ void ResidualMap_skip(ResidualMap* const rm) {
   assert(rm->currentContextIndex < rm->numContexts);
   rm->bases[rm->currentContextIndex] = UINT32_MAX;
   rm->currentContextIndex++;
+}
+
+// The number of observations in the circular bin range [offset, offset+range)
+// of the prefix sums s (see ResidualMap_mix()).
+static uint64_t ResidualMap_count(const uint16_t* const s, const int offset, const int range) {
+  if (offset + range <= BINS)
+    return s[offset + range - 1] - (offset == 0 ? 0 : s[offset - 1]);
+  return s[BINS - 1] - s[offset - 1] + s[offset + range - BINS - 1];
 }
 
 void ResidualMap_mix(ResidualMap* const rm, Mixer* const m) {
@@ -105,18 +103,8 @@ void ResidualMap_mix(ResidualMap* const rm, Mixer* const m) {
 
     // n0: observation count in the "next bit = 0" residual window (lower half)
     // n1: observation count in the "next bit = 1" residual window (upper half)
-    uint64_t n0, n1;
-    // n0
-    if (bin0_offset + range <= BINS)
-      n0 = s[bin0_offset + range - 1] - (bin0_offset == 0 ? 0 : s[bin0_offset - 1]);
-    else
-      n0 = s[BINS - 1] - s[bin0_offset - 1] + s[bin0_offset + range - BINS - 1];
-
-    // n1
-    if (bin1_offset + range <= BINS)
-      n1 = s[bin1_offset + range - 1] - (bin1_offset == 0 ? 0 : s[bin1_offset - 1]);
-    else
-      n1 = s[BINS - 1] - s[bin1_offset - 1] + s[bin1_offset + range - BINS - 1];
+    const uint64_t n0 = ResidualMap_count(s, bin0_offset, range);
+    uint64_t n1 = ResidualMap_count(s, bin1_offset, range);
 
     // we need p1 = 4096*(n1+1)/(n0+n1+2)
     // to avoid the division:
@@ -144,8 +132,7 @@ void ResidualMap_mix(ResidualMap* const rm, Mixer* const m) {
 
     const int p1 = (int)(((n1 << 12) * (uint64_t)rm->dt[sum_small]) >> 30); //4096 * (n1+1) / (n0+n1+2)
 
-    Mixer_add(m, (stretch(p1) * rm->scale) >> 8);
-    Mixer_add(m, ((p1 - 2048) * rm->scale) >> 9);
+    Mixer_addProbability(m, p1, rm->scale);
   }
 }
 

@@ -19,5 +19,4 @@ typedef struct SparseBitModel {
 } SparseBitModel;
 
 void SparseBitModel_init(SparseBitModel* sbm, const Shared* sh, uint64_t size);
-void SparseBitModel_destroy(SparseBitModel* sbm);
 void SparseBitModel_mix(SparseBitModel* sbm, Mixer* m);

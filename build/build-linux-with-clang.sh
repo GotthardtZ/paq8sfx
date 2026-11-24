@@ -34,7 +34,7 @@ echo "Building paq8sfx ..."
 $CC -DFULL -O3 $COMMON $LTO $SOURCES -s -Wl,--gc-sections -o paq8sfx
 
 echo "Building stub ..."
-$CC -DSFX $SFX_SIMD $SFX_MODE -Os $COMMON $LTO $SOURCES -s -Wl,--gc-sections -o stub
+$CC -DSFX $SFX_SIMD $SFX_MODE -Os $COMMON $LTO $SOURCES -s -Wl,--gc-sections -Wl,-z,noseparate-code -o stub
 
 # stub-free: the stub without the C runtime library (see src/platform/).
 # Its two runtime files are compiled first, without link-time optimization and
@@ -45,7 +45,7 @@ FREE="-DSFX $SFX_SIMD $SFX_MODE -DSFX_FREESTANDING -Os $COMMON -fno-stack-protec
 RUNTIME="-fno-lto -fno-builtin -ffunction-sections -fdata-sections"
 $CC $FREE $RUNTIME -c ../src/platform/CRuntime.c -o _crt.o
 $CC $FREE $RUNTIME -c ../src/platform/Platform_Linux.c -o _platform.o
-$CC $FREE $LTO $SOURCES _crt.o _platform.o -nostdlib -static -Wl,--gc-sections -Wl,-e,_start -Wl,--build-id=none -s "$($CC -print-libgcc-file-name)" -o stub-free
+$CC $FREE $LTO $SOURCES _crt.o _platform.o -nostdlib -static -Wl,--gc-sections -Wl,-e,_start -Wl,--build-id=none -Wl,-z,noseparate-code -s "$($CC -print-libgcc-file-name)" -o stub-free
 rm -f _crt.o _platform.o
 
 echo "Done: paq8sfx, stub and stub-free are in $(pwd)"

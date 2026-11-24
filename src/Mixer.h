@@ -23,8 +23,11 @@ typedef struct Mixer Mixer;
   *
   * The SIMD implementations (Mixer_Scalar.c, Mixer_SSE2.c, Mixer_AVX2.c)
   * provide the three functions below; create a mixer with
-  * MixerFactory_createMixer(), free it with Mixer_delete().
+  * MixerFactory_createMixer(); it is freed by Array_deleteAll().
   */
+/** A SIMD implementation of the mixer: Mixer_Scalar, Mixer_SSE2, Mixer_AVX2 */
+typedef struct MixerImpl MixerImpl;
+
 struct Mixer {
   IPredictor predictor;
   const Shared* shared;
@@ -43,52 +46,44 @@ struct Mixer {
   size_t nx; /**< number of inputs in tx, 0 to n */
   int* pr; /**< last result (scaled 12 bits) */
   Mixer* mp; /**< points to a second-layer Mixer to combine results, or NULL */
-  int simdWidth; /**< number of shorts per SIMD lane, used for input padding */
 
   /**
-    * Computes the dot product of input vector tx and weight vector @p w
-    * over @p n elements.
-    * @param w weight vector (aligned, padded to simdWidth)
-    * @param n number of elements (multiple of simdWidth)
-    * @return dot product (scaled by 1/256)
+    * The SIMD implementation (see MixerImpl), copied from the descriptor
+    * the mixer was created with.
     */
-  int (*dotProduct)(const Mixer* self, const short* w, size_t n);
-
-  /**
-    * Computes dot products of tx against two weight vectors simultaneously,
-    * sharing tx loads across both.
-    * @param w0 first weight vector
-    * @param w1 second weight vector
-    * @param n number of elements (multiple of simdWidth)
-    * @param sum1 receives the dot product for w1
-    * @return dot product for w0
-    */
-  int (*dotProduct2)(const Mixer* self, const short* w0, const short* w1, size_t n, int* sum1);
-
-  /**
-    * Adjusts weight vector @p w by adding a term proportional to
-    * input vector tx and error @p e (gradient descent step).
-    * @param w weight vector to update in place
-    * @param n number of elements (multiple of simdWidth)
-    * @param e scaled error term
-    */
-  void (*train)(const Mixer* self, short* w, size_t n, int e);
+  struct MixerImpl {
+    /** number of shorts per SIMD lane, used for input padding */
+    int simdWidth;
+    /**
+      * Computes the dot product of input vector tx and weight vector @p w
+      * over @p n elements.
+      * @param w weight vector (aligned, padded to simdWidth)
+      * @param n number of elements (multiple of simdWidth)
+      * @return dot product (scaled by 1/256)
+      */
+    int (*dotProduct)(const Mixer* self, const short* w, size_t n);
+    /**
+      * Adjusts weight vector @p w by adding a term proportional to
+      * input vector tx and error @p e (gradient descent step).
+      * @param w weight vector to update in place
+      * @param n number of elements (multiple of simdWidth)
+      * @param e scaled error term
+      */
+    void (*train)(const Mixer* self, short* w, size_t n, int e);
+  } impl;
 };
 
 /**
-  * Sets up the common part of a mixer; used by the SIMD implementations.
+  * Creates a mixer that uses the SIMD implementation @p impl.
+  * If s > 1, a second layer with s + promoted inputs is created as well.
   * @param sh shared context
   * @param n max inputs (will be rounded up to a multiple of simdWidth)
   * @param m max contexts
   * @param s max context sets
-  * @param simdWidth number of shorts per SIMD lane (controls input padding)
+  * @param promoted number of extra inputs of the second layer (see Mixer_promote())
+  * @param impl the SIMD implementation
   */
-void Mixer_init(Mixer* mixer, const Shared* sh, int n, int m, int s, int simdWidth);
-
-/**
-  * Frees a mixer created by MixerFactory_createMixer() (and its second layer).
-  */
-void Mixer_delete(Mixer* mixer);
+Mixer* Mixer_new(const Shared* sh, int n, int m, int s, int promoted, const MixerImpl* impl);
 
 /**
   * Predicts the next bit as a 12-bit probability (0 to 4095).
@@ -114,6 +109,12 @@ static inline void Mixer_add(Mixer* const mixer, const int x) {
   assert(x == (short)x);
   mixer->tx[mixer->nx++] = (short)x;
 }
+
+/**
+  * Inputs a probability @p p1 (12 bits) as two inputs: stretch(p1) and
+  * p1 - 1/2, both scaled by @p scale (256: 1x).
+  */
+void Mixer_addProbability(Mixer* mixer, int p1, int scale);
 
 /**
   * Selects @ref cx as one of @ref range neural networks to use.

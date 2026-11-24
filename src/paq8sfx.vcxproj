@@ -383,6 +383,7 @@
     <ClCompile Include="paq8sfx.c" />
     <ClCompile Include="PredictorMain.c" />
     <ClCompile Include="Random.c" />
+    <ClCompile Include="Rle.c" />
     <ClCompile Include="ResidualMap.c" />
     <ClCompile Include="Shared.c" />
     <ClCompile Include="Squash.c" />
@@ -453,6 +454,7 @@
     <ClInclude Include="MixerFactory.h" />
     <ClInclude Include="PredictorMain.h" />
     <ClInclude Include="Random.h" />
+    <ClInclude Include="Rle.h" />
     <ClInclude Include="ResidualMap.h" />
     <ClInclude Include="RingBuffer.h" />
     <ClInclude Include="Shared.h" />

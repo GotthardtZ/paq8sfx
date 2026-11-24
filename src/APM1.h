@@ -25,8 +25,6 @@ typedef struct APM1 {
   * @param r the learning rate
   */
 void APM1_init(APM1* apm, const Shared* sh, int n, int r);
-void APM1_destroy(APM1* apm);
-
 /**
   * Returns adjusted probability in context @ref cx (0 to n-1).
   * @param pr initial (pre-adjusted) probability

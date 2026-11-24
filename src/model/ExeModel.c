@@ -1,5 +1,7 @@
-﻿#include "ExeModel.h"
+﻿#include "../Array.h"
+#include "ExeModel.h"
 #include "../Hash.h"
+#include "../Rle.h"
 
 // The parser's tables and constants. (They are file scope in C; in paq8px
 // they are members of the ExeModel class.)
@@ -30,143 +32,31 @@ enum InstructionFormat {
     fERR = 0xf, // denotes invalid opcodes
 };
 
-/**< 1 byte opcodes */
-static const uint8_t table1[256] = {
-    // 0       1       2       3       4       5       6       7       8       9       a       b       c       d       e       f
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, // 0
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, // 1
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, // 2
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fNM | fBI, fNM | fDI, fNM | fNI, fNM | fNI, // 3
+// The opcode tables, expanded by ExeModel_new(); their readable form is
+// tools/tables/ExeModelTables.c.
+#include "ExeModelTables.inc"
 
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI,
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // 4
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI,
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // 5
-    fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fDI, fMR | fDI, fNM | fBI,
-    fMR | fBI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // 6
-    fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR,
-    fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, // 7
+static uint8_t exeFlags[EXE_TABLES_SIZE];      /**< the format (fMR, ...) of each opcode */
+static uint8_t exeCategories[EXE_TABLES_SIZE]; /**< the category (OP_...) of each opcode */
 
-    fMR | fBI, fMR | fDI, fMR | fBI, fMR | fBI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 8
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fAM | fDA,
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // 9
-    fAM | fAD, fAM | fAD, fAM | fAD, fAM | fAD, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fBI, fNM | fDI, fNM | fNI,
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // a
-    fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fDI, fNM | fDI, fNM | fDI,
-    fNM | fDI, fNM | fDI, fNM | fDI, fNM | fDI, fNM | fDI, // b
-
-    fMR | fBI, fMR | fBI, fNM | fWI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fBI, fMR | fDI, fNM | fBI, fNM | fNI, fNM | fWI,
-    fNM | fNI, fNM | fNI, fNM | fBI, fERR, fNM | fNI, // c
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fBI, fNM | fBI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // d
-    fAM | fBR, fAM | fBR, fAM | fBR, fAM | fBR, fNM | fBI, fNM | fBI, fNM | fBI, fNM | fBI, fAM | fDR, fAM | fDR, fAM | fAD,
-    fAM | fBR, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // e
-    fNM | fNI, fERR, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fMEXTRA, fMEXTRA, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI,
-    fNM | fNI, fNM | fNI, fMEXTRA, fMEXTRA, // f
-};
-
-/**< 2 byte opcodes */
-static const uint8_t table2[256] = {
-    // 0       1       2       3       4       5       6       7       8       9       a       b       c       d       e       f
-    fERR, fERR, fERR, fERR, fERR, fERR, fNM | fNI, fERR, fNM | fNI, fNM | fNI, fERR, fERR, fERR, fERR, fERR, fERR, // 0
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fERR,
-    fERR, fERR, // 1
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, // 2
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fERR, fNM | fNI, fERR, fERR, fERR, fERR, fERR, fERR, fERR,
-    fERR, // 3
-
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 4
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 5
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 6
-    fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fNI, fERR, fERR, fERR, fERR, fERR, fERR,
-    fMR | fNI, fMR | fNI, // 7
-
-    fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR,
-    fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, fAM | fDR, // 8
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 9
-    fNM | fNI, fNM | fNI, fNM | fNI, fMR | fNI, fMR | fBI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fERR, fERR, fMR | fNI, fMR | fBI,
-    fMR | fNI, fERR, fMR | fNI, // a
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fERR, fERR, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, // b
-
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fNM | fNI, fNM | fNI, fNM | fNI,
-    fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, fNM | fNI, // c
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // d
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // e
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, // f
-};
-
-/**< 3 byte opcodes 0F38XX */
-static const uint8_t table3_38[256] = {
-    // 0       1       2       3       4       5       6       7       8       9       a       b       c       d       e       f
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fERR, fERR, fERR, fERR, // 0
-    fMR | fNI, fERR, fERR, fERR, fMR | fNI, fMR | fNI, fERR, fMR | fNI, fERR, fERR, fERR, fERR, fMR | fNI, fMR | fNI, fMR | fNI,
-    fERR, // 1
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fERR, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR,
-    fERR, fERR, fERR, // 2
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fERR, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI,
-    fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // 3
-    fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 4
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 5
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 6
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 7
-    fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 8
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 9
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // a
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // b
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // c
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // d
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // e
-    fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // f
-};
-
-/**< 3 byte opcodes 0F3AXX */
-static const uint8_t table3_3A[256] = {
-    // 0       1       2       3       4       5       6       7       8       9       a       b       c       d       e       f
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI,
-    fMR | fBI, // 0
-    fERR, fERR, fERR, fERR, fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 1
-    fMR | fBI, fMR | fBI, fMR | fBI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 2
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 3
-    fMR | fBI, fMR | fBI, fMR | fBI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 4
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 5
-    fMR | fBI, fMR | fBI, fMR | fBI, fMR | fBI, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 6
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 7
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 8
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // 9
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // a
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // b
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // c
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // d
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // e
-    fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, fERR, // f
-};
-
-/**< escape opcodes using ModRM byte to get more variants */
-static const uint8_t tableX[32] = {
-    // 0       1       2       3       4       5       6       7
-    fMR | fBI, fERR, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // escapes for 0xf6
-    fMR | fDI, fERR, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, fMR | fNI, // escapes for 0xf7
-    fMR | fNI, fMR | fNI, fERR, fERR, fERR, fERR, fERR, fERR, // escapes for 0xfe
-    fMR | fNI, fMR | fNI, fMR | fNI, fERR, fMR | fNI, fERR, fMR | fNI, fERR, // escapes for 0xff
-};
+#define table1     (exeFlags + 0)         /**< 1 byte opcodes */
+#define table2     (exeFlags + 256)       /**< 2 byte opcodes */
+#define table3_38  (exeFlags + 512)       /**< 3 byte opcodes 0F38XX */
+#define table3_3A  (exeFlags + 768)       /**< 3 byte opcodes 0F3AXX */
+#define tableX     (exeFlags + 1024)      /**< escape opcodes using ModRM byte to get more variants */
+#define typeOp1    (exeCategories + 0)
+#define typeOp2    (exeCategories + 256)
+#define typeOp3_38 (exeCategories + 512)
+#define typeOp3_3A (exeCategories + 768)
+#define typeOpX    (exeCategories + 1024)
 
 static const uint8_t invalidX64Ops[19] = {0x06, 0x07, 0x16, 0x17, 0x1E, 0x1F, 0x27, 0x2F, 0x37, 0x3F, 0x60, 0x61, 0x62, 0x82, 0x9A, 0xD4, 0xD5, 0xD6, 0xEA,};
-static const uint8_t x64Prefixes[8] = {0x26, 0x2E, 0x36, 0x3E, 0x9B, 0xF0, 0xF2, 0xF3,};
+// The prefix bytes and their value in Instruction.prefix: segment overrides (1;
+// FS 2 and GS 3 are invalid in x64), address size (4), WAIT (5), LOCK (6), REP (7)
+static const uint8_t prefixes[11][2] = {
+  { 0x26, 1 }, { 0x2E, 1 }, { 0x36, 1 }, { 0x3E, 1 }, { 0x64, 2 }, { 0x65, 3 },
+  { 0x67, 4 }, { 0x9B, 5 }, { 0xF0, 6 }, { 0xF2, 7 }, { 0xF3, 7 },
+};
 
 enum InstructionCategory {
     OP_INVALID = 0,
@@ -201,288 +91,6 @@ enum InstructionCategory {
     OP_MMX = 29,
     OP_SSE = 30,
     OP_SSE_DATAMOV = 31,
-};
-
-static const uint8_t typeOp1[256] = {
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //03
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_STACK, OP_GEN_STACK, //07
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, //0B
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_STACK, OP_PREFIX, //0F
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //13
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_STACK, OP_GEN_STACK, //17
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //1B
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_STACK, OP_GEN_STACK, //1F
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, //23
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_PREFIX_SEGREG, OP_GEN_ARITH_DECIMAL, //27
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //2B
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_PREFIX_SEGREG, OP_GEN_ARITH_DECIMAL, //2F
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, //33
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_PREFIX_SEGREG, OP_GEN_ARITH_DECIMAL, //37
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //3B
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_PREFIX_SEGREG, OP_GEN_ARITH_DECIMAL, //3F
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //43
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //47
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //4B
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //4F
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, //53
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, //57
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, //5B
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, OP_GEN_STACK, //5F
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_BREAK, OP_GEN_CONVERSION, //63
-  OP_PREFIX_SEGREG, OP_PREFIX_SEGREG, OP_PREFIX, OP_PREFIX, //67
-  OP_GEN_STACK, OP_GEN_ARITH_BINARY, OP_GEN_STACK, OP_GEN_ARITH_BINARY, //6B
-  OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, //6F
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //73
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //77
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //7B
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //7F
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //83
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //87
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //8B
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_STACK, //8F
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //93
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //97
-  OP_GEN_CONVERSION, OP_GEN_CONVERSION, OP_GEN_BRANCH, OP_PREFIX_X87FPU, //9B
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //9F
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //A3
-  OP_GEN_STRING, OP_GEN_STRING, OP_GEN_STRING, OP_GEN_STRING, //A7
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_STRING, OP_GEN_STRING, //AB
-  OP_GEN_STRING, OP_GEN_STRING, OP_GEN_STRING, OP_GEN_STRING, //AF
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //B3
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //B7
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //BB
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //BF
-  OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, OP_GEN_BRANCH, OP_GEN_BRANCH, //C3
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //C7
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_BRANCH, OP_GEN_BRANCH, //CB
-  OP_GEN_BREAK, OP_GEN_BREAK, OP_GEN_BREAK, OP_GEN_BREAK, //CF
-  OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, //D3
-  OP_GEN_ARITH_DECIMAL, OP_GEN_ARITH_DECIMAL, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //D7
-  OP_X87_ARITH, OP_X87_DATAMOV, OP_X87_ARITH, OP_X87_DATAMOV, //DB
-  OP_X87_ARITH, OP_X87_DATAMOV, OP_X87_ARITH, OP_X87_DATAMOV, //DF
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //E3
-  OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, //E7
-  OP_GEN_BRANCH, OP_GEN_BRANCH, OP_GEN_BRANCH, OP_GEN_BRANCH, //EB
-  OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, OP_GEN_INOUT, //EF
-  OP_PREFIX, OP_GEN_BREAK, OP_PREFIX, OP_PREFIX, //F3
-  OP_SYSTEM, OP_GEN_FLAG_CONTROL, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, //F7
-  OP_GEN_FLAG_CONTROL, OP_GEN_FLAG_CONTROL, OP_GEN_FLAG_CONTROL, OP_GEN_FLAG_CONTROL, //FB
-  OP_GEN_FLAG_CONTROL, OP_GEN_FLAG_CONTROL, OP_GEN_ARITH_BINARY, OP_GEN_BRANCH, //FF
-};
-
-static const uint8_t typeOp2[256] = {
-  OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, //03
-  OP_INVALID, OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, //07
-  OP_SYSTEM, OP_SYSTEM, OP_INVALID, OP_GEN_CONTROL, //0B
-  OP_INVALID, OP_GEN_CONTROL, OP_INVALID, OP_INVALID, //0F
-  OP_SSE_DATAMOV, OP_SSE_DATAMOV, OP_SSE_DATAMOV, OP_SSE_DATAMOV, //13
-  OP_SSE, OP_SSE, OP_SSE_DATAMOV, OP_SSE_DATAMOV, //17
-  OP_SSE, OP_GEN_CONTROL, OP_GEN_CONTROL, OP_GEN_CONTROL, //1B
-  OP_GEN_CONTROL, OP_GEN_CONTROL, OP_GEN_CONTROL, OP_GEN_CONTROL, //1F
-  OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, //23
-  OP_SYSTEM, OP_INVALID, OP_SYSTEM, OP_INVALID, //27
-  OP_SSE_DATAMOV, OP_SSE_DATAMOV, OP_SSE, OP_SSE, //2B
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //2F
-  OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, OP_SYSTEM, //33
-  OP_SYSTEM, OP_SYSTEM, OP_INVALID, OP_INVALID, //37
-  OP_PREFIX, OP_INVALID, OP_PREFIX, OP_INVALID, //3B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //3F
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //43
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //47
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //4B
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //4F
-  OP_SSE_DATAMOV, OP_SSE, OP_SSE, OP_SSE, //53
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //57
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //5B
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //5F
-  OP_MMX, OP_MMX, OP_MMX, OP_MMX, //63
-  OP_MMX, OP_MMX, OP_MMX, OP_MMX, //67
-  OP_MMX, OP_MMX, OP_MMX, OP_MMX, //6B
-  OP_INVALID, OP_INVALID, OP_MMX, OP_MMX, //6F
-  OP_SSE, OP_MMX, OP_MMX, OP_MMX, //73
-  OP_MMX, OP_MMX, OP_MMX, OP_MMX, //77
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //7B
-  OP_INVALID, OP_INVALID, OP_MMX, OP_MMX, //7F
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //83
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //87
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //8B
-  OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, OP_GEN_BRANCH_COND, //8F
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //93
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //97
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //9B
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //9F
-  OP_GEN_STACK, OP_GEN_STACK, OP_GEN_CONTROL, OP_GEN_BIT, //A3
-  OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, OP_INVALID, OP_INVALID, //A7
-  OP_GEN_STACK, OP_GEN_STACK, OP_SYSTEM, OP_GEN_BIT, //AB
-  OP_GEN_SHF_ROT, OP_GEN_SHF_ROT, OP_STATE_MANAGEMENT, OP_GEN_ARITH_BINARY, //AF
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_BIT, //B3
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_CONVERSION, OP_GEN_CONVERSION, //B7
-  OP_INVALID, OP_GEN_CONTROL, OP_GEN_BIT, OP_GEN_BIT, //BB
-  OP_GEN_BIT, OP_GEN_BIT, OP_GEN_CONVERSION, OP_GEN_CONVERSION, //BF
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_SSE, OP_SSE, //C3
-  OP_SSE, OP_SSE, OP_SSE, OP_GEN_DATAMOV, //C7
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //CB
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_GEN_DATAMOV, //CF
-  OP_INVALID, OP_MMX, OP_MMX, OP_MMX, //D3
-  OP_SSE, OP_MMX, OP_INVALID, OP_SSE, //D7
-  OP_MMX, OP_MMX, OP_SSE, OP_MMX, //DB
-  OP_MMX, OP_MMX, OP_SSE, OP_MMX, //DF
-  OP_SSE, OP_MMX, OP_SSE, OP_MMX, //E3
-  OP_SSE, OP_MMX, OP_INVALID, OP_SSE, //E7
-  OP_MMX, OP_MMX, OP_SSE, OP_MMX, //EB
-  OP_MMX, OP_MMX, OP_SSE, OP_MMX, //EF
-  OP_INVALID, OP_MMX, OP_MMX, OP_MMX, //F3
-  OP_SSE, OP_MMX, OP_SSE, OP_SSE, //F7
-  OP_MMX, OP_MMX, OP_MMX, OP_SSE, //FB
-  OP_MMX, OP_MMX, OP_MMX, OP_INVALID, //FF
-};
-
-static const uint8_t typeOp3_38[256] = {
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //03
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //07
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //0B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //0F
-  OP_SSE, OP_INVALID, OP_INVALID, OP_INVALID, //13
-  OP_SSE, OP_SSE, OP_INVALID, OP_SSE, //17
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //1B
-  OP_SSE, OP_SSE, OP_SSE, OP_INVALID, //1F
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //23
-  OP_SSE, OP_SSE, OP_INVALID, OP_INVALID, //27
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //2B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //2F
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //33
-  OP_SSE, OP_SSE, OP_INVALID, OP_SSE, //37
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //3B
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //3F
-  OP_SSE, OP_SSE, OP_INVALID, OP_INVALID, //43
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //47
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //4B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //4F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //53
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //57
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //5B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //5F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //63
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //67
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //6B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //6F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //73
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //77
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //7B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //7F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //83
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //87
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //8B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //8F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //93
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //97
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //9B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //9F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //A3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //A7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //AB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //AF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //B3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //B7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //BB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //BF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //C3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //C7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //CB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //CF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //D3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //D7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //DB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //DF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //E3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //E7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //EB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //EF
-  OP_GEN_DATAMOV, OP_GEN_DATAMOV, OP_INVALID, OP_INVALID, //F3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //F7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //FB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //FF
-};
-
-static const uint8_t typeOp3_3A[256] = {
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //03
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //07
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //0B
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //0F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //13
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //17
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //1B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //1F
-  OP_SSE, OP_SSE, OP_SSE, OP_INVALID, //23
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //27
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //2B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //2F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //33
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //37
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //3B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //3F
-  OP_SSE, OP_SSE, OP_SSE, OP_INVALID, //43
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //47
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //4B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //4F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //53
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //57
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //5B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //5F
-  OP_SSE, OP_SSE, OP_SSE, OP_SSE, //63
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //67
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //6B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //6F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //73
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //77
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //7B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //7F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //83
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //87
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //8B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //8F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //93
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //97
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //9B
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //9F
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //A3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //A7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //AB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //AF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //B3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //B7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //BB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //BF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //C3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //C7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //CB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //CF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //D3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //D7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //DB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //DF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //E3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //E7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //EB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //EF
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //F3
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //F7
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //FB
-  OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, //FF
-};
-
-static const uint8_t typeOpX[32] = {
-  // escapes for F6
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY,
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY,
-  // escapes for F7
-  OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_LOGICAL, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY,
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY,
-  // escapes for FE
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID, OP_INVALID,
-  // escapes for FF
-  OP_GEN_ARITH_BINARY, OP_GEN_ARITH_BINARY, OP_GEN_BRANCH, OP_GEN_BRANCH, OP_GEN_BRANCH, OP_GEN_BRANCH, OP_GEN_STACK,
-  OP_INVALID,
 };
 
 enum Prefixes {
@@ -568,48 +176,32 @@ typedef struct Instruction {
 #define REX_w ((uint8_t)0x08)
 #define minRequired ((uint32_t)(8)) /**< minimum required consecutive valid instructions to be considered as code */
 
+// The small, often used members come first: they are reached with short
+// (8-bit) offsets, the large arrays and sub-objects follow them.
 struct ExeModel {
   Shared* shared;
-  ContextMap2 cm;
-  IndirectMap iMap;
-  OpCache cache;
-  uint32_t stateBh[256];
   ExeState pState, state;
   Instruction op;
   uint32_t totalOps, opMask, opCategoryMask, context;
   uint64_t brkCtx; /**< hash */
   bool valid;
+  OpCache cache;
+  ContextMap2 cm;
+  IndirectMap iMap;
+  uint32_t stateBh[256];
 };
 
 #define nCM1 ExeModel_nCM1
 
 ExeModel* ExeModel_new(Shared* const sh, const uint64_t size) {
-  ExeModel* const em = (ExeModel*)calloc(1, sizeof(ExeModel)); // cache, op, stateBh: all 0
-  if (em == NULL) {
-    quit("Out of memory.");
-  }
+  ExeModel* const em = ARRAY_NEW(ExeModel, 1); // zeroed
+  Rle_decode(exeFlags, exeFlagsRle, EXE_TABLES_SIZE, 4);
+  Rle_decode(exeCategories, exeCategoriesRle, EXE_TABLES_SIZE, 5);
   em->shared = sh;
   ContextMap2_init(&em->cm, sh, size, ExeModel_nCM1 + ExeModel_nCM2, 64);
   IndirectMap_init(&em->iMap, sh, 20, 1, 64, 1023);
-  em->pState = Start;
-  em->state = Start;
-  em->totalOps = 0;
-  em->opMask = 0;
-  em->opCategoryMask = 0;
-  em->context = 0;
-  em->brkCtx = 0;
-  em->valid = false;
   assert(isPowerOf2(size));
   return em;
-}
-
-void ExeModel_delete(ExeModel* const em) {
-  if (em == NULL) {
-    return;
-  }
-  ContextMap2_destroy(&em->cm);
-  IndirectMap_destroy(&em->iMap);
-  free(em);
 }
 
 static inline bool isInvalidX64Op(const uint8_t op) {
@@ -621,13 +213,19 @@ static inline bool isInvalidX64Op(const uint8_t op) {
   return false;
 }
 
-static inline bool isValidX64Prefix(const uint8_t prefix) {
-  for( int i = 0; i < 8; i++ ) {
-    if( prefix == x64Prefixes[i] ) {
-      return true;
+// The value of a prefix byte in Instruction.prefix, 0 if it is not a prefix
+static uint8_t prefixOf(const uint8_t c) {
+  for (int i = 0; i < 11; i++) {
+    if (c == prefixes[i][0]) {
+      return prefixes[i][1];
     }
   }
-  return ((prefix >= 0x40 && prefix <= 0x4F) || (prefix >= 0x64 && prefix <= 0x67));
+  return 0;
+}
+
+static inline bool isValidX64Prefix(const uint8_t prefix) {
+  // the prefixes above, REX (0x40..0x4F) and operand size (0x66)
+  return prefixOf(prefix) != 0 || (prefix & 0xF0) == 0x40 || prefix == 0x66;
 }
 
 static void processMode(Instruction* const op, ExeState* const state) {
@@ -733,6 +331,12 @@ static void applyCodeAndSetFlag(Instruction* const op, const uint32_t flag) {
   op->data |= (op->code << codeShift) | flag;
 }
 
+// hash6 of 6 values. Any hashN (N < 6) is the same as hash6 with the
+// missing values set to UINT64_MAX: (UINT64_MAX + 1) * multiplier == 0.
+static uint64_t ExeModel_hash6(const uint64_t* const x) {
+  return hash6(x[0], x[1], x[2], x[3], x[4], x[5]);
+}
+
 static inline uint32_t opN(const OpCache* const cache, const uint32_t n) {
   return cache->Op[(cache->Index - n) & (CacheSize - 1)];
 }
@@ -786,6 +390,10 @@ static void ExeModel_update(ExeModel* const em) {
   INJECT_SHARED_c1
   em->pState = em->state;
   op->size++;
+  // brkCtx = hash6(bk[0], ..., bk[5]): bk[0] is a tag that tells which case
+  // computed it, bk[1] is the new state (the prefix for tags 0 and 1); unused
+  // values are UINT64_MAX, which do not change the hash (see ExeModel_hash6()).
+  uint64_t bk[6] = { 0, 0, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX };
   switch( em->state ) {
     case Start:
     case Error: {
@@ -809,14 +417,7 @@ static void ExeModel_update(ExeModel* const em) {
         op->mustCheckRex = ((op->code & 0xF0) == 0x40) && (!(op->decoding && ((op->data & prefixMask) == 1)));
 
         // check prefixes
-        op->prefix = (int)(op->code == ES_OVERRIDE || op->code == CS_OVERRIDE || op->code == SS_OVERRIDE || op->code == DS_OVERRIDE) +
-                    //invalid in x64
-                    (int)(op->code == FS_OVERRIDE) * 2 + 
-                    (int)(op->code == GS_OVERRIDE) * 3 +
-                    (int)(op->code == AD_OVERRIDE) * 4 + 
-                    (int)(op->code == WAIT_FPU) * 5 +
-                    (int)(op->code == LOCK) * 6 + 
-                    (int)(op->code == REP_N_STR || op->code == REP_STR) * 7;
+        op->prefix = prefixOf(op->code);
 
         if( !op->decoding ) {
           em->totalOps += (int)(op->data != 0) - (int)((cache->Index != 0) && cache->Op[cache->Index & (CacheSize - 1)] != 0);
@@ -833,7 +434,7 @@ static void ExeModel_update(ExeModel* const em) {
             op->data = op->prefix;
             op->category = typeOp1[op->code];
             op->decoding = true;
-            em->brkCtx = hash3(0, op->prefix, em->opCategoryMask & categoryMask);
+            bk[0] = 0; bk[1] = op->prefix; bk[2] = em->opCategoryMask & categoryMask;
             break;
           }
         } else {
@@ -845,7 +446,7 @@ static void ExeModel_update(ExeModel* const em) {
           } else {
             op->data = op->prefix;
             op->category = typeOp1[op->code];
-            em->brkCtx = hash3(1, op->prefix, em->opCategoryMask & categoryMask);
+            bk[0] = 1; bk[1] = op->prefix; bk[2] = em->opCategoryMask & categoryMask;
             break;
           }
         }
@@ -858,14 +459,14 @@ static void ExeModel_update(ExeModel* const em) {
       } else {
         readFlags(op, &em->state);
       }
-      em->brkCtx = hash5(2, em->state, op->code, (em->opCategoryMask & categoryMask), opN(cache, 1) & ((ModRM_mod | ModRM_reg | ModRM_rm) << ModRMShift));
+      bk[0] = 2; bk[2] = op->code; bk[3] = em->opCategoryMask & categoryMask; bk[4] = opN(cache, 1) & ((ModRM_mod | ModRM_reg | ModRM_rm) << ModRMShift);
       break;
     }
     case PrefOpSize: {
       op->code = c1;
       applyCodeAndSetFlag(op, operandSizeOverride);
       readFlags(op, &em->state);
-      em->brkCtx = hash2(3, em->state);
+      bk[0] = 3;
       break;
     }
     case PrefMultiByteOp: {
@@ -882,12 +483,12 @@ static void ExeModel_update(ExeModel* const em) {
         op->category = typeOp2[op->code];
         checkFlags(op, &em->state);
       }
-      em->brkCtx = hash2(4, em->state);
+      bk[0] = 4;
       break;
     }
     case ParseFlags: {
       processFlags(op, &em->state);
-      em->brkCtx = hash2(5, em->state);
+      bk[0] = 5;
       break;
     }
     case ExtraFlags:
@@ -903,22 +504,22 @@ static void ExeModel_update(ExeModel* const em) {
         if( op->flags == fERR ) {
           memset(op, 0, sizeof(Instruction));
           em->state = Error;
-          em->brkCtx = hash2(6, em->state);
+          bk[0] = 6;
           break;
         }
         processFlags(op, &em->state);
-        em->brkCtx = hash2(7, em->state);
+        bk[0] = 7;
         break;
       }
 
       if((op->ModRM & ModRM_rm) == 4 && op->ModRM < ModRM_mod ) {
         em->state = ReadSIB;
-        em->brkCtx = hash2(8, em->state);
+        bk[0] = 8;
         break;
       }
 
       processModRm(op, &em->state);
-      em->brkCtx = hash3(9, em->state, op->code);
+      bk[0] = 9; bk[2] = op->code;
       break;
     }
     case Read_OP3_38:
@@ -933,14 +534,14 @@ static void ExeModel_update(ExeModel* const em) {
         op->category = typeOp3_3A[op->code];
       }
       checkFlags(op, &em->state);
-      em->brkCtx = hash2(10, em->state);
+      bk[0] = 10;
       break;
     }
     case ReadSIB: {
       op->SIB = c1;
       op->data |= ((op->SIB & SIB_scale) << SIBScaleShift);
       processModRm(op, &em->state);
-      em->brkCtx = hash3(11, em->state, op->SIB & SIB_scale);
+      bk[0] = 11; bk[2] = op->SIB & SIB_scale;
       break;
     }
     case Read8:
@@ -951,13 +552,13 @@ static void ExeModel_update(ExeModel* const em) {
         op->imm8 = false;
         em->state = Start;
       }
-      em->brkCtx = hash5(12, em->state, op->flags & fMODE, op->bytesRead,
-                    ((op->bytesRead > 1) ? (RingBuffer_back(buf, op->bytesRead) << 8) : 0) | ((op->bytesRead) != 0 ? c1 : 0));
+      bk[0] = 12; bk[2] = op->flags & fMODE; bk[3] = op->bytesRead;
+      bk[4] = ((op->bytesRead > 1) ? (RingBuffer_back(buf, op->bytesRead) << 8) : 0) | ((op->bytesRead) != 0 ? c1 : 0);
       break;
     }
     case Read8ModRm: {
       processMode(op, &em->state);
-      em->brkCtx = hash2(13, em->state);
+      bk[0] = 13;
       break;
     }
     case Read16F: {
@@ -965,7 +566,7 @@ static void ExeModel_update(ExeModel* const em) {
         op->bytesRead = 0;
         processFlags2(op, &em->state);
       }
-      em->brkCtx = hash2(14, em->state);
+      bk[0] = 14;
       break;
     }
     case Read32ModRm: {
@@ -974,10 +575,14 @@ static void ExeModel_update(ExeModel* const em) {
         op->bytesRead = 0;
         processMode(op, &em->state);
       }
-      em->brkCtx = hash2(15, em->state);
+      bk[0] = 15;
       break;
     }
   }
+  if (bk[0] > 1) {
+    bk[1] = em->state;
+  }
+  em->brkCtx = ExeModel_hash6(bk);
   const ExeState state = em->state;
   em->valid = (em->totalOps > 2 * minRequired) && ((em->opMask & ((1u << minRequired) - 1)) == ((1u << minRequired) - 1));
   em->context = state + 16 * op->bytesRead + 16 * (op->REX & REX_w);
@@ -985,80 +590,95 @@ static void ExeModel_update(ExeModel* const em) {
 
   bool forced = shared->State.blockType == BLOCKTYPE_EXE;
   if( em->valid || forced ) {
-    ContextMap2* const cm = &em->cm;
+    // The contexts, in order: row i is hashed as hash6(i, ...) with unused
+    // values UINT64_MAX. Row nCM1 is brkCtx (already a hash).
+    uint64_t cx[ExeModel_nCM1 + ExeModel_nCM2][6];
+    memset(cx, 0xff, sizeof(cx));
     uint32_t mask = 0;
     uint32_t count0 = 0;
-    uint32_t i = 0;
-    while( i < nCM1 ) {
+    INJECT_SHARED_blockPos
+    for (uint32_t i = 0; i < nCM1; i++) {
       if( i > 1 ) {
         mask = mask * 2 + (uint32_t)(RingBuffer_back(buf, i - 1) == 0);
         count0 += mask & 1;
       }
       int j = (i < 4) ? i + 1 : 5 + (i - 4) * (2 + (int)(i > 6));
-      INJECT_SHARED_blockPos
-      ContextMap2_set(cm, hash4(i, exeCxt(em, j, 
-        RingBuffer_back(buf, 1) * (int)(j > 6)),
-        ((1u << nCM1) | mask) * (uint32_t)(count0 * nCM1 / 2 >= i), 
-        (0x08 | (blockPos & 0x07)) * (uint32_t)(i < 4)
-      ));
-      i++;
+      cx[i][1] = exeCxt(em, j, RingBuffer_back(buf, 1) * (int)(j > 6));
+      cx[i][2] = ((1u << nCM1) | mask) * (uint32_t)(count0 * nCM1 / 2 >= i);
+      cx[i][3] = (0x08 | (blockPos & 0x07)) * (uint32_t)(i < 4);
     }
 
-    ContextMap2_set(cm, em->brkCtx);
-
+    uint64_t* r = cx[nCM1 + 1];
     mask = prefixMask | (0xF8 << codeShift) | multiByteOpcode | prefix38 | prefix3A;
-    ContextMap2_set(cm, hash6(++i, opN(cache, 1) & (mask | regDWordDisplacement | addressMode),
-      state + 16 * op->bytesRead, op->data & mask, op->REX, op->category
-    ));
+    r[1] = opN(cache, 1) & (mask | regDWordDisplacement | addressMode);
+    r[2] = state + 16 * op->bytesRead;
+    r[3] = op->data & mask;
+    r[4] = op->REX;
+    r[5] = op->category;
 
+    r += 6;
     mask = 0x04 | (0xFE << codeShift) | multiByteOpcode | prefix38 | prefix3A | ((ModRM_mod | ModRM_reg) << ModRMShift);
-    ContextMap2_set(cm, hash6(++i, opN(cache, 1) & mask, opN(cache, 2) & mask, opN(cache, 3) & mask,
-      em->context + 256 * (int)((op->ModRM & ModRM_mod) == ModRM_mod),
-      op->data & ((mask | prefixRex) ^ (ModRM_mod << ModRMShift))
-    ));
+    r[1] = opN(cache, 1) & mask;
+    r[2] = opN(cache, 2) & mask;
+    r[3] = opN(cache, 3) & mask;
+    r[4] = em->context + 256 * (int)((op->ModRM & ModRM_mod) == ModRM_mod);
+    r[5] = op->data & ((mask | prefixRex) ^ (ModRM_mod << ModRMShift));
 
+    r += 6;
     mask = 0x04 | codeMask;
-    ContextMap2_set(cm, hash6(++i,
-      opN(cache, 1) & mask, 
-      opN(cache, 2) & mask, 
-      opN(cache, 3) & mask, 
-      opN(cache, 4) & mask,
-      (op->data & mask) | ((uint32_t)(state) << 11) | (op->bytesRead << 15)
-    ));
+    r[1] = opN(cache, 1) & mask;
+    r[2] = opN(cache, 2) & mask;
+    r[3] = opN(cache, 3) & mask;
+    r[4] = opN(cache, 4) & mask;
+    r[5] = (op->data & mask) | ((uint32_t)(state) << 11) | (op->bytesRead << 15);
 
+    r += 6;
     mask = 0x04 | (0xFC << codeShift) | multiByteOpcode | prefix38 | prefix3A;
-    ContextMap2_set(cm, hash6(++i, state + 16 * op->bytesRead, op->data & mask, op->category * 8 + (em->opMask & 0x07), op->flags,
-                (int)((op->SIB & SIB_base) == 5) * 4 + (int)((op->ModRM & ModRM_reg) == ModRM_reg) * 2 +
-                (int)((op->ModRM & ModRM_mod) == 0)
-    ));
+    r[1] = state + 16 * op->bytesRead;
+    r[2] = op->data & mask;
+    r[3] = op->category * 8 + (em->opMask & 0x07);
+    r[4] = op->flags;
+    r[5] = (int)((op->SIB & SIB_base) == 5) * 4 + (int)((op->ModRM & ModRM_reg) == ModRM_reg) * 2 +
+           (int)((op->ModRM & ModRM_mod) == 0);
+
+    r += 6;
     mask = prefixMask | codeMask | operandSizeOverride | multiByteOpcode | prefixRex | prefix38 | prefix3A | hasExtraFlags | hasModRm |
            ((ModRM_mod | ModRM_rm) << ModRMShift);
-    ContextMap2_set(cm, hash4(++i, op->data & mask, state + 16 * op->bytesRead, op->flags));
+    r[1] = op->data & mask;
+    r[2] = state + 16 * op->bytesRead;
+    r[3] = op->flags;
 
+    r += 6;
     mask = prefixMask | codeMask | operandSizeOverride | multiByteOpcode | prefix38 | prefix3A | hasExtraFlags | hasModRm;
-    ContextMap2_set(cm, hash5(++i, opN(cache, 1) & mask, state,
-                op->bytesRead * 2 + (int)((op->REX & REX_w) > 0),
-                op->data & ((uint16_t)(mask ^ operandSizeOverride))
-    ));
+    r[1] = opN(cache, 1) & mask;
+    r[2] = state;
+    r[3] = op->bytesRead * 2 + (int)((op->REX & REX_w) > 0);
+    r[4] = op->data & ((uint16_t)(mask ^ operandSizeOverride));
+
+    r += 6;
     mask = 0x04 | (0xFE << codeShift) | multiByteOpcode | prefix38 | prefix3A | (ModRM_reg << ModRMShift);
-    ContextMap2_set(cm, hash5(++i,
-      opN(cache, 1) & mask, 
-      opN(cache, 2) & mask, 
-      state + 16 * op->bytesRead, 
-      op->data & (mask | prefixMask | codeMask)
-    ));
+    r[1] = opN(cache, 1) & mask;
+    r[2] = opN(cache, 2) & mask;
+    r[3] = state + 16 * op->bytesRead;
+    r[4] = op->data & (mask | prefixMask | codeMask);
 
-    ContextMap2_set(cm, hash2(++i, state + 16 * op->bytesRead));
+    r += 6;
+    r[1] = state + 16 * op->bytesRead;
 
-    ContextMap2_set(cm, hash4(++i,
-      (0x100 | c1) * (uint32_t)(op->bytesRead > 0), 
-      state + 16 * em->pState + 256 * op->bytesRead,
-         (int)((op->flags & fMODE) == fAM) * 16 + 
-                          (op->REX & REX_w) + 
-         (int)((op->o16)) * 4 +
-         (int)((op->code & 0xFE) == 0xE8) * 2 +
-         (int)((op->data & multiByteOpcode) != 0 && (op->code & 0xF0) == 0x80)
-    ));
+    r += 6;
+    r[1] = (0x100 | c1) * (uint32_t)(op->bytesRead > 0);
+    r[2] = state + 16 * em->pState + 256 * op->bytesRead;
+    r[3] = (int)((op->flags & fMODE) == fAM) * 16 +
+           (op->REX & REX_w) +
+           (int)((op->o16)) * 4 +
+           (int)((op->code & 0xFE) == 0xE8) * 2 +
+           (int)((op->data & multiByteOpcode) != 0 && (op->code & 0xF0) == 0x80);
+
+    ContextMap2* const cm = &em->cm;
+    for (uint32_t i = 0; i < ExeModel_nCM1 + ExeModel_nCM2; i++) {
+      cx[i][0] = i;
+      ContextMap2_set(cm, i == nCM1 ? em->brkCtx : ExeModel_hash6(cx[i]));
+    }
 
     em->shared->State.x86_64.state = 0x80 | ((uint8_t)(state) << 3) | op->bytesRead;
   }

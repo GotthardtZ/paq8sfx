@@ -107,16 +107,15 @@ static void ContextMap2_update(IPredictor* const predictor) {
           
           const uint8_t bit0state = slot0e->slot0.bitState;
           if (bit0state >= 3) { // at least 1 byte was seen
-            const uint8_t byte2 = bit0state >= 7 ? slot0e->slot0.byte2 : slot0e->slot0.byte1;
+            // the bytes seen (oldest first): byte2 and byte1 if at least 2 bytes were seen, otherwise byte1
+            const int seen2 = bit0state >= 7;
+            const uint8_t* const bytes = &slot0e->slot0.byte1; // byte1, byte2
             const uint8_t mask = ((1 << bpos) - 1);
             const int shift = 8 - bpos;
-            if (((c0 ^ (byte2 >> shift)) & mask) == 0) { // last 2/5 bits must match otherwise it's not the current slot location
-              updatePendingContextsInSlot(cm, &contextInfo->bitStateTmp, byte2 >> (shift - 3)); // simulate the current states at the temporary location
-            }
-            if (bit0state >= 7) { // at least 2 bytes were seen
-              const uint8_t byte1 = slot0e->slot0.byte1;
-              if (((c0 ^ (byte1 >> shift)) & mask) == 0) { // last 2/5 bits must match otherwise it's not the current slot location
-                updatePendingContextsInSlot(cm, &contextInfo->bitStateTmp, byte1 >> (shift - 3)); // simulate the current states at the temporary location
+            for (int k = seen2; k >= 0; k--) {
+              const uint8_t b = bytes[k];
+              if (((c0 ^ (b >> shift)) & mask) == 0) { // last 2/5 bits must match otherwise it's not the current slot location
+                updatePendingContextsInSlot(cm, &contextInfo->bitStateTmp, b >> (shift - 3)); // simulate the current states at the temporary location
               }
             }
           }
@@ -136,34 +135,28 @@ static void ContextMap2_update(IPredictor* const predictor) {
   } // start over
 }
 
+// The StateMaps (see ContextMapMaps): contexts per set (bits), limit, a-priori type
+static const struct { uint8_t bits; uint16_t limit; uint8_t type; } mapSetup[CM_MAPS] = {
+  { 12, 127, STATEMAP_RUN },        // 63-255
+  {  8, 511, STATEMAP_BITHISTORY }, // 511-1023
+  {  8, 511, STATEMAP_GENERIC },    // 511-1023
+  { 12, 511, STATEMAP_GENERIC },    // 255-1023
+};
+
 void ContextMap2_init(ContextMap2* const cm, const Shared* const sh, const uint64_t size, const uint32_t contexts, const int scale) {
   cm->predictor.update = ContextMap2_update;
   cm->shared = sh;
-  Random_init(&cm->rnd);
   cm->C = contexts;
   cm->contextInfoList = ARRAY_NEW(ContextInfo, contexts);
   cm->hashTable = ARRAY_NEW(Bucket16, size >> 6);
-  StateMap_init(&cm->runMap, sh, contexts, (1 << 12), 127, STATEMAP_RUN);           /* StateMap : s, n, lim, init */ // 63-255
-  StateMap_init(&cm->stateMap, sh, contexts, (1 << 8), 511, STATEMAP_BITHISTORY);   /* StateMap : s, n, lim, init */ // 511-1023
-  StateMap_init(&cm->bhMap8B, sh, contexts, (1 << 8), 511, STATEMAP_GENERIC);       /* StateMap : s, n, lim, init */ // 511-1023
-  StateMap_init(&cm->bhMap12B, sh, contexts, (1 << 12), 511, STATEMAP_GENERIC);     /* StateMap : s, n, lim, init */ // 255-1023
+  for (int k = 0; k < CM_MAPS; k++) {
+    StateMap_init(&cm->maps[k], sh, contexts, 1 << mapSetup[k].bits, mapSetup[k].limit, (StateMapType)(mapSetup[k].type));
+  }
   cm->index = 0;
   cm->mask = (uint32_t)((size >> 6) - 1);
   cm->hashBits = ilog2(cm->mask + 1);
   cm->scale = scale;
-  cm->order = 0;
   assert(size >= 64 && isPowerOf2(size));
-}
-
-void ContextMap2_destroy(ContextMap2* const cm) {
-  Array_delete(cm->contextInfoList);
-  Array_delete(cm->hashTable);
-  cm->contextInfoList = NULL;
-  cm->hashTable = NULL;
-  StateMap_destroy(&cm->runMap);
-  StateMap_destroy(&cm->stateMap);
-  StateMap_destroy(&cm->bhMap8B);
-  StateMap_destroy(&cm->bhMap12B);
 }
 
 void ContextMap2_set(ContextMap2* const cm, const uint64_t contexthash) {
@@ -180,15 +173,12 @@ void ContextMap2_set(ContextMap2* const cm, const uint64_t contexthash) {
     ctxflags |= CM_DEFERRED;
   }
   else if (hashElementInSlot0->slot0.bitState <= 14) { // the first 3 bytes in this context are now known, it's time to update pending bit histories
-    if (hashElementInSlot0->slot0.runcount == 2) {
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte2 + 256);
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte1 + 256);
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte1 + 256);
-    }
-    else {
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte3 + 256);
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte2 + 256);
-      updatePendingContexts(cm, ctx, chk, hashElementInSlot0->slot0.byte1 + 256);
+    // replay the last 3 bytes, oldest first: byte3, byte2, byte1
+    // (with a run count of 2: byte2, byte1, byte1)
+    const uint8_t* const bytes = &hashElementInSlot0->slot0.byte1; // byte1, byte2, byte3
+    const int run2 = hashElementInSlot0->slot0.runcount == 2;
+    for (int k = 2; k >= 0; k--) {
+      updatePendingContexts(cm, ctx, chk, bytes[k - (run2 && k > 0)] + 256);
     }
   }
   
@@ -208,10 +198,9 @@ void ContextMap2_setScale(ContextMap2* const cm, const int Scale) { cm->scale = 
 void ContextMap2_mix(ContextMap2* const cm, Mixer* const m) {
   const Shared* const shared = cm->shared;
   UpdateBroadcaster_subscribe(Shared_getUpdateBroadcaster(shared), &cm->predictor);
-  StateMap_subscribe(&cm->stateMap);
-  StateMap_subscribe(&cm->runMap);
-  StateMap_subscribe(&cm->bhMap8B);
-  StateMap_subscribe(&cm->bhMap12B);
+  for (int k = 0; k < CM_MAPS; k++) {
+    StateMap_subscribe(&cm->maps[k]);
+  }
 
   const int scale = cm->scale;
   cm->order = 0;
@@ -219,10 +208,15 @@ void ContextMap2_mix(ContextMap2* const cm, Mixer* const m) {
   INJECT_SHARED_c0
   for( uint32_t i = 0; i < cm->index; i++ ) {
     ContextInfo* contextInfo = &cm->contextInfoList[i];
-    if((contextInfo->flags & CM_SKIPPED_CONTEXT) == 0 ) {
-
+    // the mixer inputs of this context: run map, state map (4), bhMap8B, bhMap12B;
+    // an input that is not computed (skipped context, unknown state) is 0
+    int in[ContextMap2_MIXERINPUTS] = { 0 };
+    if((contextInfo->flags & CM_SKIPPED_CONTEXT) != 0 ) {
+      for (int k = 0; k < CM_MAPS; k++) {
+        StateMap_skip(&cm->maps[k], i);
+      }
+    } else {
       const HashElementForContextMap* const slot0e = contextInfo->hashElementInSlot0;
-
       uint8_t* pState = &contextInfo->hashElementInSlot012->states[0] + getStateByteLocation(bpos, c0);
       const int state = *pState;
       const int n0 = StateTable_next(state, 2);
@@ -235,47 +229,36 @@ void ContextMap2_mix(ContextMap2* const cm, Mixer* const m) {
       const bool complete2 = (byteState >= 7) || (byteState >= 3 && bpos == 0);
       const bool complete3 = (byteState >= 15) || (byteState >= 7 && bpos == 0);
       const int bp = (UINT32_C(0x33322210) >> (bpos << 2)) & 0xF; // {bpos:0}->0  {bpos:1}->1  {bpos:2,3,4}->2  {bpos:5,6,7}->3
-      bool skipRunMap = true;
-      if( complete1 ) {
-        if(((slot0e->slot0.byte1 + 256u) >> (8 - bpos)) == c0 ) { // 1st candidate (last byte seen) matches
-          const int predictedBit = (slot0e->slot0.byte1 >> (7 - bpos)) & 1;
-          const int byte1IsUncertain = (int)(slot0e->slot0.byte2 != slot0e->slot0.byte1);
-          const int runCount = slot0e->slot0.runcount; // 1..255
-          Mixer_add(m, stretch(StateMap_p2(&cm->runMap, i, runCount << 4 | bp << 2 | byte1IsUncertain << 1 | predictedBit)) >> (1 + byte1IsUncertain));
-          skipRunMap = false;
-        } else if( complete2 && ((slot0e->slot0.byte2 + 256u) >> (8 - bpos)) == c0 ) { // 2nd candidate matches
-          const int predictedBit = (slot0e->slot0.byte2 >> (7 - bpos)) & 1;
-          const int byte2IsUncertain = (int)(slot0e->slot0.byte3 != slot0e->slot0.byte2);
-          Mixer_add(m, stretch(StateMap_p2(&cm->runMap, i, bitIsUncertain << 1 | predictedBit)) >> (2 + byte2IsUncertain));
-          skipRunMap = false;
-        }
+      if( complete1 && ((slot0e->slot0.byte1 + 256u) >> (8 - bpos)) == c0 ) { // 1st candidate (last byte seen) matches
+        const int predictedBit = (slot0e->slot0.byte1 >> (7 - bpos)) & 1;
+        const int byte1IsUncertain = (int)(slot0e->slot0.byte2 != slot0e->slot0.byte1);
+        const int runCount = slot0e->slot0.runcount; // 1..255
+        in[0] = stretch(StateMap_p2(&cm->maps[CM_RUNMAP], i, runCount << 4 | bp << 2 | byte1IsUncertain << 1 | predictedBit)) >> (1 + byte1IsUncertain);
+      } else if( complete1 && complete2 && ((slot0e->slot0.byte2 + 256u) >> (8 - bpos)) == c0 ) { // 2nd candidate matches
+        const int predictedBit = (slot0e->slot0.byte2 >> (7 - bpos)) & 1;
+        const int byte2IsUncertain = (int)(slot0e->slot0.byte3 != slot0e->slot0.byte2);
+        in[0] = stretch(StateMap_p2(&cm->maps[CM_RUNMAP], i, bitIsUncertain << 1 | predictedBit)) >> (2 + byte2IsUncertain);
+      } else {
         // remark: considering the 3rd byte is not beneficial in most cases, except for some 8bpp images
-      }
-      if( skipRunMap ) {
-        StateMap_skip(&cm->runMap, i);
-        Mixer_add(m, 0);
+        StateMap_skip(&cm->maps[CM_RUNMAP], i);
       }
 
       // predict from bit context
       if( state == 0 ) {
-        StateMap_skip(&cm->stateMap, i);
-        Mixer_add(m, 0);
-        Mixer_add(m, 0);
-        Mixer_add(m, 0);
-        Mixer_add(m, 0);
+        StateMap_skip(&cm->maps[CM_STATEMAP], i);
       } else {
-        const int p1 = StateMap_p2(&cm->stateMap, i, state);
+        const int p1 = StateMap_p2(&cm->maps[CM_STATEMAP], i, state);
         const int st = (stretch(p1) * scale) >> 8;
         const int contextIsYoung = (int)(state <= 2);
-        Mixer_add(m, st >> contextIsYoung);
-        Mixer_add(m, ((p1 - 2048) * scale) >> 9);
-        Mixer_add(m, (bitIsUncertain - 1) & st); // when both counts are nonzero add(0) otherwise add(st)
+        in[1] = st >> contextIsYoung;
+        in[2] = ((p1 - 2048) * scale) >> 9;
+        in[3] = (bitIsUncertain - 1) & st; // when both counts are nonzero add(0) otherwise add(st)
         const int p0 = 4095 - p1;
-        Mixer_add(m, (((p1 & (-!n0)) - (p0 & (-!n1))) * scale) >> 10);
+        in[4] = (((p1 & (-!n0)) - (p0 & (-!n1))) * scale) >> 10;
         cm->order++;
       }
 
-      const int bhBits = 
+      const int bhBits =
         (((slot0e->slot0.byte1 >> (7 - bpos)) & 1)) |
         (((slot0e->slot0.byte2 >> (7 - bpos)) & 1) << 1) |
         (((slot0e->slot0.byte3 >> (7 - bpos)) & 1) << 2);
@@ -291,24 +274,11 @@ void ContextMap2_mix(ContextMap2* const cm, Mixer* const m) {
       //else new context (bhState=0)
 
       const uint8_t stateGroup = StateTable_group(state); //0..31
-      Mixer_add(m, stretch(StateMap_p2(&cm->bhMap8B, i, bitIsUncertain << 7 | (bhState << 3) | bpos)) >> 2); // using bitIsUncertain is generally beneficial except for some 8bpp image (noticeable loss)
-      Mixer_add(m, stretch(StateMap_p2(&cm->bhMap12B, i, stateGroup << 7 | (bhState << 3) | bpos)) >> 2);
-      
-    } else { //skipped context
-
-      StateMap_skip(&cm->stateMap, i);
-      Mixer_add(m, 0);
-      Mixer_add(m, 0);
-      Mixer_add(m, 0);
-      Mixer_add(m, 0);
-
-      StateMap_skip(&cm->runMap, i);
-      Mixer_add(m, 0);
-
-      StateMap_skip(&cm->bhMap8B, i);
-      StateMap_skip(&cm->bhMap12B, i);
-      Mixer_add(m, 0);
-      Mixer_add(m, 0);
+      in[5] = stretch(StateMap_p2(&cm->maps[CM_BHMAP8B], i, bitIsUncertain << 7 | (bhState << 3) | bpos)) >> 2; // using bitIsUncertain is generally beneficial except for some 8bpp image (noticeable loss)
+      in[6] = stretch(StateMap_p2(&cm->maps[CM_BHMAP12B], i, stateGroup << 7 | (bhState << 3) | bpos)) >> 2;
+    }
+    for (int k = 0; k < ContextMap2_MIXERINPUTS; k++) {
+      Mixer_add(m, in[k]);
     }
   }
 }

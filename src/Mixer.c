@@ -1,6 +1,7 @@
 ﻿#include "Mixer.h"
 #include "Array.h"
 #include "Squash.h"
+#include "Stretch.h"
 
 static int scaleDotProduct(const int dp, const int scaleFactor) {
   return (dp * scaleFactor) >> 16;
@@ -51,28 +52,28 @@ static void Mixer_update(IPredictor* const predictor) {
     int lim = mixer->mp == NULL ? 6 : 17;
     if (err < -lim || err > lim) { // skip training when error is low
       mixer->rates[i] = updateLearningRate(&mixer->info[i], mixer->rates[i], err, mixer->lowerLimitOfLearningRate);
-      mixer->train(mixer, &mixer->wx[mixer->cxt[i] * mixer->n], mixer->nx, (err * mixer->rates[i]) >> 16);
+      mixer->impl.train(mixer, &mixer->wx[mixer->cxt[i] * mixer->n], mixer->nx, (err * mixer->rates[i]) >> 16);
     }
   }
   Mixer_reset(mixer);
 }
 
-void Mixer_init(Mixer* const mixer, const Shared* const sh, const int n, const int m, const int s, const int simdWidth) {
+Mixer* Mixer_new(const Shared* const sh, const int n, const int m, const int s, const int promoted, const MixerImpl* const impl) {
+  Mixer* const mixer = ARRAY_NEW(Mixer, 1); // zeroed
+  mixer->impl = *impl;
+  const int simdWidth = impl->simdWidth;
   mixer->predictor.update = Mixer_update;
   mixer->shared = sh;
   mixer->n = (n + (simdWidth - 1)) & -(simdWidth);
   mixer->m = m;
   mixer->s = s;
   mixer->lowerLimitOfLearningRate = s == 1 ? Mixer_MIN_LEARNING_RATE_S1 : Mixer_MIN_LEARNING_RATE_SN;
-  mixer->scaleFactor = 0;
   mixer->tx = (short*)Array_new(mixer->n, sizeof(short), 64);
   mixer->wx = (short*)Array_new(mixer->n * m, sizeof(short), 64);
   mixer->cxt = ARRAY_NEW(uint32_t, s);
   mixer->info = ARRAY_NEW(ErrorInfo, s);
   mixer->rates = ARRAY_NEW(int, s);
   mixer->pr = ARRAY_NEW(int, s);
-  mixer->mp = NULL;
-  mixer->simdWidth = simdWidth;
   assert((mixer->n & (simdWidth - 1)) == 0);
   assert(mixer->m > 0);
   assert(mixer->s > 0);
@@ -85,20 +86,10 @@ void Mixer_init(Mixer* const mixer, const Shared* const sh, const int n, const i
     mixer->wx[i] = initialWeight;
   }
   Mixer_reset(mixer);
-}
-
-void Mixer_delete(Mixer* const mixer) {
-  if (mixer == NULL) {
-    return;
+  if (s > 1) {
+    mixer->mp = Mixer_new(sh, s + promoted, 1, 1, 0, impl);
   }
-  Mixer_delete(mixer->mp);
-  Array_delete(mixer->tx);
-  Array_delete(mixer->wx);
-  Array_delete(mixer->cxt);
-  Array_delete(mixer->info);
-  Array_delete(mixer->rates);
-  Array_delete(mixer->pr);
-  free(mixer);
+  return mixer;
 }
 
 void Mixer_setScaleFactor(Mixer* const mixer, const int sf0, const int sf1) {
@@ -125,35 +116,28 @@ int Mixer_p(Mixer* const mixer) {
   UpdateBroadcaster_subscribe(Shared_getUpdateBroadcaster(mixer->shared), &mixer->predictor);
   assert(mixer->scaleFactor > 0);
   //pad input to a multiple of simdWidth
-  while (mixer->nx & (mixer->simdWidth - 1)) {
+  while (mixer->nx & (mixer->impl.simdWidth - 1)) {
     mixer->tx[mixer->nx++] = 0;
   }
   const size_t n = mixer->n;
   const size_t nx = mixer->nx;
   if (mixer->mp != NULL) { // first mixer layer: feed results to second layer
-    const size_t numContexts = mixer->numContexts;
-    const size_t end = numContexts & ~(size_t)1;
-    size_t i = 0;
-    for (; i < end; i += 2) {
-      int dp1 = 0;
-      const int dp0 = mixer->dotProduct2(mixer,
-        &mixer->wx[mixer->cxt[i + 0] * n],
-        &mixer->wx[mixer->cxt[i + 1] * n], nx, &dp1);
-      mixer->pr[i + 0] = processDotProduct(mixer->mp, dp0, mixer->scaleFactor);
-      mixer->pr[i + 1] = processDotProduct(mixer->mp, dp1, mixer->scaleFactor);
-    }
-    if (i < numContexts) {
-      const int dp = mixer->dotProduct(mixer, &mixer->wx[mixer->cxt[i] * n], nx);
+    for (size_t i = 0; i < mixer->numContexts; i++) {
+      const int dp = mixer->impl.dotProduct(mixer, &mixer->wx[mixer->cxt[i] * n], nx);
       mixer->pr[i] = processDotProduct(mixer->mp, dp, mixer->scaleFactor);
     }
-
     Mixer_set(mixer->mp, 0, 1);
     return Mixer_p(mixer->mp);
   }
   else { // second (last) mixer layer: return prediction directly
-    const int dp = scaleDotProduct(mixer->dotProduct(mixer, &mixer->wx[mixer->cxt[0] * n], nx), mixer->scaleFactor);
+    const int dp = scaleDotProduct(mixer->impl.dotProduct(mixer, &mixer->wx[mixer->cxt[0] * n], nx), mixer->scaleFactor);
     return mixer->pr[0] = squash(dp);
   }
+}
+
+void Mixer_addProbability(Mixer* const mixer, const int p1, const int scale) {
+  Mixer_add(mixer, (stretch(p1) * scale) >> 8);
+  Mixer_add(mixer, ((p1 - 2048) * scale) >> 9);
 }
 
 void Mixer_set(Mixer* const mixer, const uint32_t cx, const uint32_t range) {

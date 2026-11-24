@@ -22,21 +22,17 @@
  * Shared information by all the models and some other classes.
  */
 typedef struct Shared {
-  UpdateBroadcaster updateBroadcaster; /**< use Shared_getUpdateBroadcaster() */
+  // The members are ordered by use: the history buffer and the global state,
+  // which every model reads after every bit, come first (they are reached
+  // with short offsets); the large subscriber list is the last one.
 
   //Shared state and statistics (global)
-
   RingBuffer buf; /**< Rotating input queue set by Predictor */
-  SIMDType chosenSimd; /**< set by the CPU dispatcher */
-  uint8_t level; /**< level=0: no compression (only transformations), level=1..12 compress using less..more RAM */
-  uint64_t mem; /**< pre-calculated value of 65536 * 2^level */
 
   struct {
-
     //
     // Global state, used by most models, updated after every bit by update(y)
     // 
-
     uint8_t y; /**< Last bit, 0 or 1 */
     uint8_t c0; /**< Last 0-7 bits of the partial byte with a leading 1 bit (1-255) */
     uint8_t c1; /**< Last whole byte, equals to c4&0xff or buf(1) */
@@ -65,18 +61,23 @@ typedef struct Shared {
       uint16_t expectedByte; //used by SSE stage and RecordModel; 0-256 where 256 = not valid
     } Match;
 
-    //NormalModel
-    struct {
-      uint8_t order; // 0-7
-      uint64_t cxt[15]; // context hashes used by NormalModel and MatchModel
-    } NormalModel;
-
     //ExeModel
     struct {
       uint8_t state; // used by SSE stage
     } x86_64;
 
+    //NormalModel
+    struct {
+      uint8_t order; // 0-7
+      uint64_t cxt[15]; // context hashes used by NormalModel and MatchModel
+    } NormalModel;
   } State;
+
+  SIMDType chosenSimd; /**< set by the CPU dispatcher */
+  uint8_t level; /**< level=0: no compression (only transformations), level=1..12 compress using less..more RAM */
+  uint64_t mem; /**< pre-calculated value of 65536 * 2^level */
+
+  UpdateBroadcaster updateBroadcaster; /**< use Shared_getUpdateBroadcaster() */
 } Shared;
 
 /**
@@ -85,11 +86,6 @@ typedef struct Shared {
  * Also builds the lookup tables used by the models (stretch, ilog).
  */
 void Shared_init(Shared* shared, uint8_t level);
-
-/**
- * Frees the history buffer.
- */
-void Shared_destroy(Shared* shared);
 
 void Shared_update(Shared* shared, int y, uint32_t p, bool isMissed);
 void Shared_reset(Shared* shared);

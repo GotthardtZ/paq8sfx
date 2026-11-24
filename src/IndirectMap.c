@@ -14,32 +14,15 @@ void IndirectMap_init(IndirectMap* const im, const Shared* const sh, const int b
   (void)limit;
   im->predictor.update = IndirectMap_update;
   im->shared = sh;
-  Random_init(&im->rnd);
   im->data = ARRAY_NEW(uint8_t, (UINT64_C(1) << bitsOfContext) * ((UINT64_C(1) << inputBits) - 1));
   StateMap_init(&im->sm, sh, 1, 256, 1023, STATEMAP_BITHISTORY);
   im->mask = (1 << bitsOfContext) - 1;
   im->maskBits = bitsOfContext;
   im->stride = (1 << inputBits) - 1;
   im->bTotal = inputBits;
-  im->b = 0;
-  im->bCount = 0;
-  im->context = 0;
   im->scale = scale;
   assert(inputBits > 0 && inputBits <= 8);
   assert(bitsOfContext + inputBits <= 24);
-  im->cp = NULL;
-  IndirectMap_setDirect(im, 0);
-}
-
-void IndirectMap_destroy(IndirectMap* const im) {
-  Array_delete(im->data);
-  im->data = NULL;
-  StateMap_destroy(&im->sm);
-}
-
-void IndirectMap_setDirect(IndirectMap* const im, const uint32_t ctx) {
-  im->context = (ctx & im->mask) * im->stride;
-  im->bCount = im->b = 0;
 }
 
 void IndirectMap_set(IndirectMap* const im, const uint64_t ctx) {
@@ -59,8 +42,7 @@ void IndirectMap_mix(IndirectMap* const im, Mixer* const m) {
   }
   else {
     const int p1 = StateMap_p1(&im->sm, state);
-    Mixer_add(m, (stretch(p1) * im->scale) >> 8);
-    Mixer_add(m, ((p1 - 2048) * im->scale) >> 9);
+    Mixer_addProbability(m, p1, im->scale);
   }
   im->bCount++;
   im->b += im->b + 1;

@@ -1,6 +1,26 @@
 ﻿#include "SimilarityEmaFunctions_Scalar.h"
 #include "../Utils.h"
 
+// Inserts score r of index idx into the best two (lower = better), if it is
+// one of them. Shared by every EMA implementation: it is rarely reached in the
+// SIMD loops (only when a lane beats the second-best).
+void SimilarityEma_top2(const uint32_t r, const uint32_t idx, uint32_t* const match_index, uint32_t* const match_score) {
+  // Note: iterating longest-to-shortest means on equal scores, longer periods win
+  //       this way we'll start at the beginning of a sequence, not at the end
+  if (r < match_score[1]) {
+    if (r < match_score[0]) {
+      match_index[1] = match_index[0];
+      match_score[1] = match_score[0];
+      match_index[0] = idx;
+      match_score[0] = r;
+    }
+    else {
+      match_index[1] = idx;
+      match_score[1] = r;
+    }
+  }
+}
+
 // Scalar EMA update with ring-buffer index masking (warmup and rare wrap case).
 // Fixed-point note: diff (0..128) is shifted left 8 to form the 8.8 fixed-point current sample (0..32768).
 // Overflow check: max intermediate = 32768 * 64 = 2'097'152 < 2^21, fits in uint32.
@@ -35,94 +55,20 @@ void SimilarityEmaFunctions_Scalar_update_with_wrapping(
 
     // Note: iterating longest-to-shortest means on equal scores, longer periods win
     //       this way we'll start at the beginning of a sequence, not at the end
-    if (r < match_score[1]) {
-      if (r < match_score[0]) {
-        match_index[1] = match_index[0];
-        match_index[0] = ema_idx;
-        match_score[1] = match_score[0];
-        match_score[0] = r;
-      }
-      else {
-        match_index[1] = ema_idx;
-        match_score[1] = r;
-      }
-    }
+    SimilarityEma_top2(r, ema_idx, match_index, match_score);
   }
 }
 
-
-// Scalar EMA update for two buffers over a contiguous block (no ring-buffer masking).
-// Processes slow and fast EMA buffers in a single pass for cache efficiency.
-// See update_with_wrapping for fixed-point layout and overflow notes.
-void SimilarityEmaFunctions_Scalar_update_and_find(
-  uint16_t* ema_buf1, 
-  uint16_t* ema_buf2,
-  const uint8_t* history_buffer_ptr,
-  const size_t count,
-  const uint8_t c1,
-  const uint32_t ema_alpha1,
-  const uint32_t ema_alpha2,
-  uint32_t* match_index1,
-  uint32_t* match_index2,
-  uint32_t* match_score1,
-  uint32_t* match_score2
-)
+// Scalar EMA update over a contiguous block (no ring-buffer wrap): the same
+// as update_with_wrapping() with a mask that keeps every index.
+void SimilarityEmaFunctions_Scalar_update(
+  uint16_t* ema_buf,                  // [in/out] 8.8 fixed-point EMA buffer, length >= count
+  const uint8_t* history_buffer_ptr,  // contiguous portion of the ring buffer with history data, length = count
+  const size_t count,                 // number of distances
+  const uint8_t c1,                   // incoming byte to be used for calculating the distances (basis of the update)
+  const uint32_t ema_alpha,           // EMA alpha (fixed-point, denominator 64)
+  uint32_t* match_index,              // [out] top-2 ema_buf indices (best, second-best)
+  uint32_t* match_score)              // [out] top-2 ema_buf scores  (best, second-best)
 {
-
-  match_index1[0] = 0; // index of the period with the lowest EMA score
-  match_index1[1] = 0; // index of the period with the second-lowest EMA score
-  match_score1[0] = UINT16_MAX;
-  match_score1[1] = UINT16_MAX;
-
-  match_index2[0] = 0; // index of the period with the lowest EMA score
-  match_index2[1] = 0; // index of the period with the second-lowest EMA score
-  match_score2[0] = UINT16_MAX;
-  match_score2[1] = UINT16_MAX;
-
-  const uint32_t ema_one_minus_alpha1 = 64 - ema_alpha1; // (1 - alpha1) in fixed-point, denominator 64
-  const uint32_t ema_one_minus_alpha2 = 64 - ema_alpha2; // (1 - alpha2) in fixed-point, denominator 64
-
-  for (size_t i = 0; i < count; i++) {
-    uint8_t pred = history_buffer_ptr[i];
-    uint32_t diff = rabs(pred, c1); // 0..128
-    uint32_t current = diff << 8;               // 8.8 fixed-point, 0..32768
-
-    uint32_t r1 = ema_buf1[i];
-    r1 = ((r1 * ema_one_minus_alpha1) + (current * ema_alpha1)) >> 6;
-    ema_buf1[i] = (uint16_t)(r1);
-
-    uint32_t r2 = ema_buf2[i];
-    r2 = ((r2 * ema_one_minus_alpha2) + (current * ema_alpha2)) >> 6;
-    ema_buf2[i] = (uint16_t)(r2);
-
-    // Note: iterating longest-to-shortest means on equal scores, longer periods win
-    //       this way we'll start at the beginning of a sequence, not at the end
-
-    if (r1 < match_score1[1]) {
-      if (r1 < match_score1[0]) {
-        match_index1[1] = match_index1[0];
-        match_score1[1] = match_score1[0];
-        match_index1[0] = i;
-        match_score1[0] = r1;
-      }
-      else {
-        match_index1[1] = i;
-        match_score1[1] = r1;
-      }
-    }
-
-    if (r2 < match_score2[1]) {
-      if (r2 < match_score2[0]) {
-        match_index2[1] = match_index2[0];
-        match_score2[1] = match_score2[0];
-        match_index2[0] = i;
-        match_score2[0] = r2;
-      }
-      else {
-        match_index2[1] = i;
-        match_score2[1] = r2;
-      }
-    }
-  }
+  SimilarityEmaFunctions_Scalar_update_with_wrapping(ema_buf, history_buffer_ptr, 0, SIZE_MAX, count, 0, c1, ema_alpha, match_index, match_score);
 }
-

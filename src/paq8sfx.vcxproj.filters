@@ -93,6 +93,9 @@
     <ClCompile Include="Random.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Rle.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ResidualMap.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -279,6 +282,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Random.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ResidualMap.h">

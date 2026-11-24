@@ -23,6 +23,12 @@
 uint8_t StateTable_next(uint8_t state, int y);
 
 /**
+ * Expands the packed state tables (see tools/pack_tables.py).
+ * Called by Shared_init(), before any other StateTable function.
+ */
+void StateTable_init(void);
+
+/**
   * Next state with probabilistic increment
   * @param oldState
   * @param y

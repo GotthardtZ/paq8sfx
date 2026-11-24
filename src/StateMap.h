@@ -30,8 +30,6 @@ typedef struct StateMap {
   * @param mapType
   */
 void StateMap_init(StateMap* sm, const Shared* sh, int s, int n, int lim, StateMapType mapType);
-void StateMap_destroy(StateMap* sm);
-
 /**
   * Call @ref StateMap_p1() when there is only 1 context set.
   * No need to call @ref StateMap_subscribe().

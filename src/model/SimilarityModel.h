@@ -31,9 +31,6 @@ enum {
 
 typedef struct SimilarityModel {
   Shared* shared;
-  ResidualMap mapR1;
-  ResidualMap mapR2;
-  ContextMap2 cm;
  
   uint32_t record_len;    // best candidate period length (in bytes)
   uint32_t record_score;  // sum of EMA scores at 1x..4x record_len (lower = better)
@@ -48,10 +45,11 @@ typedef struct SimilarityModel {
   uint16_t* ema_buf;              // 8.8 fixed-point EMA of |x-pred| for each distance/period; size = MAX_MATCH_DISTANCE; 32-byte aligned
   uint32_t match_index[2];        // ema_buf[] indices of the best and second-best match period
   uint32_t match_score[2];        // EMA scores (lower = better) for match_index[0] and [1]
+  ResidualMap mapR1;
+  ResidualMap mapR2;
+  ContextMap2 cm;
 } SimilarityModel;
 
 SimilarityModel* SimilarityModel_new(Shared* sh, uint64_t size, size_t max_match_distance, size_t max_record_length);
-void SimilarityModel_delete(SimilarityModel* sim);
-
 void SimilarityModel_update(SimilarityModel* sim, uint64_t warmup);
 void SimilarityModel_mix(SimilarityModel* sim, Mixer* m);

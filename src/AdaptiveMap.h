@@ -15,5 +15,4 @@ typedef struct AdaptiveMap {
 } AdaptiveMap;
 
 void AdaptiveMap_init(AdaptiveMap* am, const Shared* sh, int n);
-void AdaptiveMap_destroy(AdaptiveMap* am);
 void AdaptiveMap_update(const AdaptiveMap* am, uint32_t* p, int limit);

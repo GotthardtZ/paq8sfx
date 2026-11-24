@@ -2,16 +2,16 @@
 #include "ArithmeticEncoder.h"
 #include "Ilog.h"
 #include "Simd.h"
+#include "StateTable.h"
 #include "Stretch.h"
 #include "Utils.h"
 
 void Shared_init(Shared* const shared, const uint8_t level) {
-  memset(shared, 0, sizeof(Shared));
   shared->State.c0 = 1;
-  shared->chosenSimd = SIMD_NONE;
 
   // The lookup tables of the models
   Stretch_init();
+  StateTable_init();
   Ilog_init();
 
   shared->level = level;
@@ -23,28 +23,10 @@ void Shared_init(Shared* const shared, const uint8_t level) {
   RingBuffer_setSize(&shared->buf, bufMem);
 
   // Determine CPU's (and OS) support for SIMD vectorization instruction set
-  int simdIset = simdDetect();
-
-  // Set highest or user selected vectorization mode
-  if (simdIset >= 9) {
-    shared->chosenSimd = SIMD_AVX2;
-  }
-  else if (simdIset >= 6) {
-    shared->chosenSimd = SIMD_SSE41;
-  }
-  else if (simdIset >= 4) {
-    shared->chosenSimd = SIMD_SSE3;
-  }
-  else if (simdIset >= 3) {
-    shared->chosenSimd = SIMD_SSE2;
-  }
-  else {
-    shared->chosenSimd = SIMD_NONE;
-  }
-}
-
-void Shared_destroy(Shared* const shared) {
-  RingBuffer_destroy(&shared->buf);
+  shared->chosenSimd = simdDetect();
+#ifdef TEST_SIMD_MAX // test builds only: force a lower SIMD code path (a SIMDType value)
+  if (shared->chosenSimd > TEST_SIMD_MAX) shared->chosenSimd = (SIMDType)TEST_SIMD_MAX;
+#endif
 }
 
 void Shared_update(Shared* const shared, const int y, const uint32_t p, const bool isMissed) {

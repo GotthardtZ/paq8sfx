@@ -20,8 +20,6 @@ typedef struct APMPost {
   * @param n the number of contexts
   */
 void APMPost_init(APMPost* apm, const Shared* sh, uint32_t n);
-void APMPost_destroy(APMPost* apm);
-
 /**
   * Returns adjusted probability in context @ref cx (0 to n-1).
   * @param pr initial (pre-adjusted) probability

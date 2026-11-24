@@ -28,6 +28,5 @@ typedef struct SimilarityModelPair {
 } SimilarityModelPair;
 
 void SimilarityModelPair_init(SimilarityModelPair* pair, Shared* sh, uint64_t mem);
-void SimilarityModelPair_destroy(SimilarityModelPair* pair);
 void SimilarityModelPair_update(SimilarityModelPair* pair);
 void SimilarityModelPair_mix(SimilarityModelPair* pair, Mixer* m);

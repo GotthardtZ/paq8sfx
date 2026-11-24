@@ -2,14 +2,6 @@
 
 void ContextModel_init(ContextModel* const cm, Shared* const sh) {
   cm->shared = sh;
-  cm->contextModelGeneric = NULL;
-  cm->selectedContextModel = NULL;
-}
-
-void ContextModel_destroy(ContextModel* const cm) {
-  ContextModelGeneric_delete(cm->contextModelGeneric);
-  cm->contextModelGeneric = NULL;
-  cm->selectedContextModel = NULL;
 }
 
 int ContextModel_p(ContextModel* const cm) {

@@ -1,10 +1,6 @@
 ﻿#include "Random.h"
 #include "Hash.h"
 
-void Random_init(Random* const rnd) {
-  rnd->_state = 0;
-}
-
 // This pseudo random number generator is a 
 // Mixed Congruential Generator with a period of 2^64
 // https://en.wikipedia.org/wiki/Linear_congruential_generator

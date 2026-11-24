@@ -33,6 +33,15 @@ mapped to predictions.
 
 enum { ContextMap2_MIXERINPUTS = 4 + 1 + 2 };
 
+/** The StateMaps of a ContextMap2, in ContextMap2.maps[] */
+enum ContextMapMaps {
+  CM_RUNMAP,   /**< run map: the last byte(s) seen in the context */
+  CM_STATEMAP, /**< bit history state */
+  CM_BHMAP8B,  /**< byte history, 8 bits */
+  CM_BHMAP12B, /**< byte history and state group, 12 bits */
+  CM_MAPS
+};
+
 typedef struct ContextInfo {
   HashElementForContextMap* hashElementInSlot0; /**< pointer to current bit history states, byte history and byte run statistics in slot0 */
   HashElementForContextMap* hashElementInSlot012; /**< pointer to current bit history states in current slot (either slot0 or slot1 or slot2) */
@@ -43,21 +52,19 @@ typedef struct ContextInfo {
 } ContextInfo;
 
 typedef struct ContextMap2 {
-  IPredictor predictor;
+  IPredictor predictor; /**< must be the first member */
+  // the small, often used members first: they are reached with short offsets
   const Shared* shared;
-  Random rnd;
-  uint32_t C; /**< max number of contexts */
-  Bucket16* hashTable; /**< bit and byte histories (statistics) */
-  ContextInfo* contextInfoList;
-  StateMap runMap;
-  StateMap stateMap;
-  StateMap bhMap8B;
-  StateMap bhMap12B;
   uint32_t index; /**< next context to set by @ref ContextMap2_set(), resets to zero after every round */
   uint32_t mask;
   int hashBits;
   int scale;
   int order; // is set after mix()
+  uint32_t C; /**< max number of contexts */
+  Random rnd;
+  Bucket16* hashTable; /**< bit and byte histories (statistics) */
+  ContextInfo* contextInfoList;
+  StateMap maps[CM_MAPS]; /**< see ContextMapMaps */
 } ContextMap2;
 
 /**
@@ -67,8 +74,6 @@ typedef struct ContextMap2 {
   * @param scale
   */
 void ContextMap2_init(ContextMap2* cm, const Shared* sh, uint64_t size, uint32_t contexts, int scale);
-void ContextMap2_destroy(ContextMap2* cm);
-
 /**
   * Set next whole byte context to @ref ctx.
   * @param ctx

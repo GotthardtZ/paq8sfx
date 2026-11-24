@@ -21,5 +21,4 @@ typedef struct SparseModel {
 } SparseModel;
 
 void SparseModel_init(SparseModel* sm, const Shared* sh, uint64_t size);
-void SparseModel_destroy(SparseModel* sm);
 void SparseModel_mix(SparseModel* sm, Mixer* m);

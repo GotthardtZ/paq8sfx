@@ -6,10 +6,6 @@ void NormalModel_init(NormalModel* const nm, Shared* const sh, const uint64_t cm
   assert(isPowerOf2(cmSize));
 }
 
-void NormalModel_destroy(NormalModel* const nm) {
-  ContextMap2_destroy(&nm->cm);
-}
-
 void NormalModel_reset(NormalModel* const nm) {
   memset(&nm->shared->State.NormalModel.cxt[0], 0, sizeof(nm->shared->State.NormalModel.cxt));
 }
@@ -32,12 +28,10 @@ void NormalModel_mix(NormalModel* const nm, Mixer* const m) {
   if( bpos == 0 ) {
     NormalModel_updateHashes(nm);
     uint64_t* cxtHashes = nm->shared->State.NormalModel.cxt;
-    for(uint64_t i = 1; i <= 6; ++i ) {
-      ContextMap2_set(&nm->cm, cxtHashes[i]);
+    static const uint8_t orders[NormalModel_nCM] = { 1, 2, 3, 4, 5, 6, 8, 11, 14 };
+    for (int i = 0; i < NormalModel_nCM; i++) {
+      ContextMap2_set(&nm->cm, cxtHashes[orders[i]]);
     }
-    ContextMap2_set(&nm->cm, cxtHashes[8]); 
-    ContextMap2_set(&nm->cm, cxtHashes[11]);
-    ContextMap2_set(&nm->cm, cxtHashes[14]);
   }
   ContextMap2_mix(&nm->cm, m);
 

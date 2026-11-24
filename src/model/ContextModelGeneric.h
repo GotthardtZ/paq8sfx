@@ -38,6 +38,7 @@
 typedef struct ContextModelGeneric {
   Shared* shared;
   Mixer* m;
+  ExeModel* exeModel;
 
   NormalModel normalModel;
   MatchModel matchModel;
@@ -45,9 +46,7 @@ typedef struct ContextModelGeneric {
   SparseModel sparseModel;
   ChartModel chartModel;
   SimilarityModelPair similarityModelPair;
-  ExeModel* exeModel;
 } ContextModelGeneric;
 
 ContextModelGeneric* ContextModelGeneric_new(Shared* sh);
-void ContextModelGeneric_delete(ContextModelGeneric* cmg);
 int ContextModelGeneric_p(ContextModelGeneric* cmg);

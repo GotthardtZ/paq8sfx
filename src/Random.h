@@ -9,5 +9,4 @@ typedef struct Random {
   uint64_t _state;
 } Random;
 
-void Random_init(Random* rnd);
 uint32_t Random_next(Random* rnd, int numberOfBits);

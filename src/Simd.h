@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "SystemDefines.h"
+#include "SIMDType.h"
 
 ///////////////////////// SIMD Vectorization detection //////////////////////////////////
 
@@ -38,79 +39,27 @@ static inline unsigned long long xgetbv(unsigned long ctr) {
 }
 #endif
 
-/* Returns system's highest supported SIMD instruction set as
-0: none (or unknown)
-1: MMX
-2: SSE
-3: SSE2
-4: SSE3
-5: SSSE3
-6: SSE4.1
-7: SSE4.2
- : SSE4A //SSE4A is not supported on Intel, so we will exclude it
-8: AVX
-9: AVX2
-10: AVX512 //AVX512F + AVX512BW
-11: NEON
+/* Returns the best SIMD code path the program has for this CPU (and OS):
+SIMD_AVX2, SIMD_SSE41, or SIMD_SSE2, which is part of every x64 CPU.
+On other systems there is no SIMD code path: SIMD_NONE.
 */
-static inline int simdDetect(void) {
-#ifdef HAS_CPUID
+static inline SIMDType simdDetect(void) {
+#ifdef X64_SIMD_AVAILABLE
   int cpuidResult[4] = {0, 0, 0, 0};
-  cpuid(cpuidResult, 0); // call cpuid function 0 ("Get vendor ID and highest basic calling parameter")
-  if( cpuidResult[0] == 0 ) {
-    return 0; //cpuid is not supported
-  }
   cpuid(cpuidResult, 1); // call cpuid function 1 ("Processor Info and Feature Bits")
-  if((cpuidResult[3] & (1 << 23)) == 0 ) {
-    return 0; //no MMX
+  if ((cpuidResult[2] & (1 << 19)) == 0) {
+    return SIMD_SSE2; // no SSE4.1
   }
-  if((cpuidResult[3] & (1 << 25)) == 0 ) {
-    return 1; //no SSE
+  // AVX needs OSXSAVE (bit 27: XGETBV is available), AVX (bit 28), and the OS must save the AVX state
+  if ((cpuidResult[2] & (3 << 27)) != (3 << 27) || (xgetbv(0) & 6) != 6) {
+    return SIMD_SSE41;
   }
-  //SSE: OK
-  if((cpuidResult[3] & (1 << 26)) == 0 ) {
-    return 2; //no SSE2
-  }
-  //SSE2: OK
-  if((cpuidResult[2] & (1 << 0)) == 0 ) {
-    return 3; //no SSE3
-  }
-  //SSE3: OK
-  if((cpuidResult[2] & (1 << 9)) == 0 ) {
-    return 4; //no SSSE3
-  }
-  //SSSE3: OK
-  if((cpuidResult[2] & (1 << 19)) == 0 ) {
-    return 5; //no SSE4.1
-  }
-  //SSE4.1: OK
-  if((cpuidResult[2] & (1 << 20)) == 0 ) {
-    return 6; //no SSE4.2
-  }
-  //SSE4.2: OK
-  if((cpuidResult[2] & (1 << 27)) == 0 ) {
-    return 7; //no OSXSAVE (no XGETBV)
-  }
-  if((xgetbv(0) & 6) != 6 ) {
-    return 7; //AVX is not enabled in OS
-  }
-  if((cpuidResult[2] & (1 << 28)) == 0 ) {
-    return 7; //no AVX
-  }
-  //AVX: OK
   cpuid(cpuidResult, 7); // call cpuid function 7 ("Extended Feature Bits")
-  if((cpuidResult[1] & (1 << 5)) == 0 ) {
-    return 8; //no AVX2
+  if ((cpuidResult[1] & (1 << 5)) == 0) {
+    return SIMD_SSE41; // no AVX2
   }
-  //AVX2: OK
-  if((cpuidResult[1] & (1 << 16)) == 0 || (cpuidResult[1] & (1 << 30)) == 0 ) {
-    return 9; //no AVX512F + AVX512BW
-  }
-  //AVX512: OK
-  return 10;
-#elif defined(ARM_NEON_AVAILABLE)
-  return 11;
+  return SIMD_AVX2;
 #else
-  return 0; //unknown system - use non-accelerated codepaths
+  return SIMD_NONE;
 #endif
 }

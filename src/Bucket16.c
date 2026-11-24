@@ -6,6 +6,16 @@ static void shiftElementsRight(Bucket16* const bucket, const size_t count) {
   memmove(&bucket->elements[1], &bucket->elements[0], count * sizeof(HashElement));
 }
 
+// Shifts the elements before position i down by 1 (overwriting element i) and
+// puts a new, empty element with this checksum in the first slot.
+static HashElementForContextMap* insert(Bucket16* const bucket, const size_t i, const uint16_t checksum) {
+  HashElement* const elements = bucket->elements;
+  shiftElementsRight(bucket, i);
+  elements[0].checksum = checksum;
+  memset(&elements[0].value, 0, sizeof(elements[0].value));
+  return &elements[0].value;
+}
+
 HashElementForContextMap* Bucket16_find(Bucket16* const bucket, uint16_t checksum, Random* const rnd) {
   HashElement* const elements = bucket->elements;
 
@@ -24,16 +34,10 @@ HashElementForContextMap* Bucket16_find(Bucket16* const bucket, uint16_t checksu
       return &elements[0].value;
     }
     if (thisChecksum == 0) { // found empty slot
-      //shift elements down by 1 (make room for the new element in the first slot)
-      shiftElementsRight(bucket, i);
-      elements[0].checksum = checksum;
-      memset(&elements[0].value, 0, sizeof(elements[0].value));
-      return &elements[0].value;
+      return insert(bucket, i, checksum);
     }
   }
-
   //no match and no empty slot -> overwrite an existing element with the new (empty) one
-
   //Replacement strategy:
   // - In case the hash elements represent an indirect context (we have content but no priority): overwrite the last used element
   // - In case the hash elements are counts/statistics: overwrite one of the the last used elements having low priority.
@@ -52,46 +56,21 @@ HashElementForContextMap* Bucket16_find(Bucket16* const bucket, uint16_t checksu
   //   evicted (overwritten).
   //
   //   The 2 most recently accessed elements are always protected from overwriting.
-  
+  //
+  //   Starting from the last element, the elements before it are compared one by one as long as 6 random bits
+  //   are at least the threshold of that step (that is: with a probability of 63/64, 60/64, 56/64, 48/64).
+  static const uint8_t thresholds[4] = { 1, 4, 8, 16 };
   size_t minElementIdx = ElementsInBucket - 1; //index of element to be evicted
+  uint32_t minPrio = HashElementForContextMap_prio(&elements[minElementIdx].value);
   uint32_t RND = Random_next(rnd, 32); //note: we'll need only 4 times 6 = 24 bits
-  if ((RND & 63) >= 1) {
-    uint32_t minPrio = HashElementForContextMap_prio(&elements[ElementsInBucket - 1].value);
-    uint32_t thisPrio = HashElementForContextMap_prio(&elements[ElementsInBucket - 2].value);
+  for (int k = 0; k < 4 && (RND & 63) >= thresholds[k]; k++, RND >>= 6) {
+    const size_t idx = ElementsInBucket - 2 - k;
+    const uint32_t thisPrio = HashElementForContextMap_prio(&elements[idx].value);
     if (thisPrio < minPrio) {
       minPrio = thisPrio;
-      minElementIdx = ElementsInBucket - 2;
-    }
-    RND >>= 6;
-    if ((RND & 63) >= 4) {
-      thisPrio = HashElementForContextMap_prio(&elements[ElementsInBucket - 3].value);
-      if (thisPrio < minPrio) {
-        minPrio = thisPrio;
-        minElementIdx = ElementsInBucket - 3;
-      }
-      RND >>= 6;
-      if ((RND & 63) >= 8) {
-        thisPrio = HashElementForContextMap_prio(&elements[ElementsInBucket - 4].value);
-        if (thisPrio < minPrio) {
-          minPrio = thisPrio;
-          minElementIdx = ElementsInBucket - 4;
-        }
-        RND >>= 6;
-        if ((RND & 63) >= 16) {
-          thisPrio = HashElementForContextMap_prio(&elements[ElementsInBucket - 5].value);
-          if (thisPrio < minPrio) {
-            minPrio = thisPrio;
-            minElementIdx = ElementsInBucket - 5;
-          }
-        }
-      }
+      minElementIdx = idx;
     }
   }
-
-  //shift elements down by 1 (make room for the new element in the first slot)
   //at the same time owerwrite the element at position "minElementIdx" (the element to be evicted)
-  shiftElementsRight(bucket, minElementIdx);
-  elements[0].checksum = checksum;
-  memset(&elements[0].value, 0, sizeof(elements[0].value));
-  return &elements[0].value;
+  return insert(bucket, minElementIdx, checksum);
 }

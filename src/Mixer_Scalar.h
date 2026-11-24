@@ -1,9 +1,10 @@
 ﻿#pragma once
 
-#if !defined(AVX2_ONLY)
+#include "SystemDefines.h"
+#if !defined(AVX2_ONLY) && !defined(X64_SIMD_AVAILABLE)
 
 #include "Mixer.h"
 
-Mixer* Mixer_Scalar_new(const Shared* sh, int n, int m, int s, int promoted);
+extern const MixerImpl Mixer_Scalar;
 
 #endif

@@ -27,16 +27,15 @@ enum {
 typedef struct MatchModel {
   Shared* shared;
   HashElementForMatchPositions* hashtable;
-  StateMap stateMaps[MatchModel_nST];
-  ContextMap2 cm;
   uint32_t ctx[MatchModel_nST];
   int hashBits;
 
   MatchInfo matchCandidates[MatchModel_N];
   uint32_t numberOfActiveCandidates;
+  StateMap stateMaps[MatchModel_nST];
+  ContextMap2 cm;
 } MatchModel;
 
 void MatchModel_init(MatchModel* mm, Shared* sh, uint64_t hashtablesize, uint64_t mapmemorysize);
-void MatchModel_destroy(MatchModel* mm);
 void MatchModel_update(MatchModel* mm);
 void MatchModel_mix(MatchModel* mm, Mixer* m);

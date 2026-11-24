@@ -19,7 +19,6 @@ static void APM1_update(IPredictor* const predictor) {
 void APM1_init(APM1* const apm, const Shared* const sh, const int n, const int r) {
   apm->predictor.update = APM1_update;
   apm->shared = sh;
-  apm->index = 0;
   apm->n = n;
   apm->t = ARRAY_NEW(uint16_t, n * 33);
   apm->rate = r;
@@ -35,11 +34,6 @@ void APM1_init(APM1* const apm, const Shared* const sh, const int n, const int r
       }
     }
   }
-}
-
-void APM1_destroy(APM1* const apm) {
-  Array_delete(apm->t);
-  apm->t = NULL;
 }
 
 int APM1_p(APM1* const apm, int pr, const int cxt) {

@@ -1,19 +1,16 @@
 ﻿#include "SimilarityModelPair.h"
 
-// Maximum match/record search distance (in bytes) indexed by compression level (1–12).
-// values must be multiples of 16 (AVX2 stride)
-static const uint32_t MAX_MATCH_DISTANCE_TABLE[12] = {
- // max match distance        // level
-   768,   1024,  1536,  2048, // 1,  2,  3,  4
-  3072,   4096,  6144,  8192, // 5,  6,  7,  8
- 12288,  16384, 24576, 32768  // 9, 10, 11, 12
-};
+// Maximum match/record search distance (in bytes) by compression level (1-12):
+// 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 24576, 32768
+// (3 or 4 times a power of 2). The values must be multiples of 16 (AVX2 stride).
+static uint32_t maxMatchDistance(const int level) {
+  return (uint32_t)((level & 1) ? 3 : 4) << (8 + (level - 1) / 2);
+}
 
 void SimilarityModelPair_init(SimilarityModelPair* const pair, Shared* const sh, const uint64_t mem) {
   pair->shared = sh;
-  pair->warmup = 0;
 
-  pair->MAX_MATCH_DISTANCE = MAX_MATCH_DISTANCE_TABLE[sh->level - 1]; // common for slow and fast models
+  pair->MAX_MATCH_DISTANCE = maxMatchDistance(sh->level); // common for slow and fast models
 
   pair->EMA_ALPHA_SLOW = 1; // alpha = 1/64 (1-alpha = 63/64)
   pair->EMA_ALPHA_FAST = 7; // alpha = 7/64 (1-alpha = 57/64)
@@ -29,13 +26,6 @@ void SimilarityModelPair_init(SimilarityModelPair* const pair, Shared* const sh,
 
   // Runtime SIMD dispatch: AVX2 > SSE4.1 > scalar
   pair->emaUpdateFunction = SimilarityEmaFunctionsFactory_getEmaUpdateFunction(sh);
-}
-
-void SimilarityModelPair_destroy(SimilarityModelPair* const pair) {
-  SimilarityModel_delete(pair->similarityModel_slow);
-  SimilarityModel_delete(pair->similarityModel_fast);
-  pair->similarityModel_slow = NULL;
-  pair->similarityModel_fast = NULL;
 }
 
 void SimilarityModelPair_update(SimilarityModelPair* const pair) {
@@ -71,18 +61,9 @@ void SimilarityModelPair_update(SimilarityModelPair* const pair) {
   const size_t buf_start_physical = buf_base & buffer_mask; // physical start index in ring buffer
   if (byte_count == MAX_MATCH_DISTANCE && (buf_start_physical + MAX_MATCH_DISTANCE) <= (buffer_mask + 1)) {
     // Path 2: steady-state, no wrap - contiguous block, vectorized path
-    pair->emaUpdateFunction(
-      ema_buf1,
-      ema_buf2,
-      history_buffer_ptr + buf_start_physical,
-      MAX_MATCH_DISTANCE,
-      c1,
-      pair->EMA_ALPHA_SLOW,
-      pair->EMA_ALPHA_FAST,
-      match_index1,
-      match_index2,
-      match_score1,
-      match_score2);
+    const uint8_t* const history = history_buffer_ptr + buf_start_physical;
+    pair->emaUpdateFunction(ema_buf1, history, MAX_MATCH_DISTANCE, c1, pair->EMA_ALPHA_SLOW, match_index1, match_score1);
+    pair->emaUpdateFunction(ema_buf2, history, MAX_MATCH_DISTANCE, c1, pair->EMA_ALPHA_FAST, match_index2, match_score2);
   }
   else {
     // Path 1: warmup or rare ring-buffer wrap - scalar with masking

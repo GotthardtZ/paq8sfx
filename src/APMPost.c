@@ -24,7 +24,6 @@ static void APMPost_update(IPredictor* const predictor) {
 void APMPost_init(APMPost* const apm, const Shared* const sh, const uint32_t n) {
   apm->predictor.update = APMPost_update;
   apm->shared = sh;
-  apm->index = 0;
   apm->n = n;
   apm->t = ARRAY_NEW(uint64_t, n * UINT64_C(4096));
   assert(n > 0);
@@ -33,11 +32,6 @@ void APMPost_init(APMPost* const apm, const Shared* const sh, const uint32_t n) 
       apm->t[i * 4096 + j] = ((4096 - j) >> 1) << 32 | (j >> 1);
     }
   }
-}
-
-void APMPost_destroy(APMPost* const apm) {
-  Array_delete(apm->t);
-  apm->t = NULL;
 }
 
 uint32_t APMPost_p(APMPost* const apm, const uint32_t pr, const uint32_t cxt) {

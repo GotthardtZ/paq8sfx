@@ -15,5 +15,4 @@ typedef struct PredictorMain {
 } PredictorMain;
 
 void PredictorMain_init(PredictorMain* predictor, Shared* sh);
-void PredictorMain_destroy(PredictorMain* predictor);
 uint32_t PredictorMain_p(PredictorMain* predictor);

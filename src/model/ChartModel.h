@@ -12,14 +12,13 @@ enum {
 
 typedef struct ChartModel {
   const Shared* shared;
-  ContextMap2 cm;
   uint32_t chart[3*8];
   uint32_t charGroup;
+  ContextMap2 cm;
   uint8_t indirect1[1024+64];
   uint8_t indirect2[256];
   uint8_t indirect3[256 * 256];
 } ChartModel;
 
 void ChartModel_init(ChartModel* cmodel, const Shared* sh, uint64_t size);
-void ChartModel_destroy(ChartModel* cmodel);
 void ChartModel_mix(ChartModel* cmodel, Mixer* m);

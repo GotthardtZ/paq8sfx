@@ -14,7 +14,7 @@
  * are relevant to parsing (prefixes, opcode, Mod and R/m fields of the ModRM byte, Scale field of the SIB byte)
  *
  * The model's state is private to ExeModel.c: create it with ExeModel_new(),
- * free it with ExeModel_delete().
+ * it is freed by Array_deleteAll().
  */
 enum {
   ExeModel_nCM1 = 10,
@@ -30,5 +30,4 @@ enum {
 typedef struct ExeModel ExeModel;
 
 ExeModel* ExeModel_new(Shared* sh, uint64_t size);
-void ExeModel_delete(ExeModel* em);
 void ExeModel_mix(ExeModel* em, Mixer* m);
